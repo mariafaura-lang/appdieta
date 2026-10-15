@@ -145,9 +145,17 @@ function ShoppingList() {
           onClick={async () => {
             const text = `Lista de la compra (${pending.length})\n\n${shoppingText(pending)}`;
             try {
-              if (navigator.share) await navigator.share({ title: 'Lista de la compra', text });
-              else { await navigator.clipboard.writeText(text); toast('Lista copiada'); }
-            } catch { /* cancelado */ }
+              await navigator.share({ title: 'Lista de la compra', text });
+              return;
+            } catch (err) {
+              if (err?.name === 'AbortError') return;
+            }
+            try {
+              await navigator.clipboard.writeText(text);
+              toast('Lista copiada; pégala en WhatsApp o en Notas');
+            } catch {
+              toast('No se pudo copiar la lista en este navegador');
+            }
           }}
         >
           📤 Compartir

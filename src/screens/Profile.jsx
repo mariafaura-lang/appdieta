@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { ACTIVITY_LEVELS, bmr, tdee, dailyTarget, proteinTarget, isProfileComplete, MIN_KCAL } from '../lib/energy.js';
 import { Seg, Field, NumInput, Stepper, useToast, fmt } from '../components/ui.jsx';
@@ -10,6 +10,7 @@ export default function Profile({ welcome, onDone }) {
   const { state, update, replace } = useStore();
   const toast = useToast();
   const fileRef = useRef();
+  const [confirmWipe, setConfirmWipe] = useState(false);
   const p = state.profile;
   const set = (k) => (v) => update((s) => { s.profile[k] = v; });
   const complete = isProfileComplete(p);
@@ -93,27 +94,36 @@ export default function Profile({ welcome, onDone }) {
             <ReminderSettings />
             <section className="card stack">
               <h2>Copia de seguridad</h2>
-              <p className="small muted">Los datos viven en este navegador. Exporta una copia de vez en cuando o para pasarlos a otro móvil.</p>
+              <p className="small muted">Los datos viven en este navegador. Guarda una copia de vez en cuando (se comparte como archivo o se copia como texto) o para pasarlos a otro móvil.</p>
               <div className="grid2">
                 <button
                   className="btn"
-                  onClick={() => {
-                    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `taper-copia-${iso()}.json`;
-                    a.click();
-                    URL.revokeObjectURL(a.href);
+                  onClick={async () => {
+                    const json = JSON.stringify(state);
+                    try {
+                      const blob = new Blob([json], { type: 'application/json' });
+                      const file = new File([blob], `taper-copia-${iso()}.json`, { type: 'application/json' });
+                      if (navigator.canShare?.({ files: [file] })) {
+                        await navigator.share({ files: [file], title: 'Copia de Táper' });
+                        return;
+                      }
+                    } catch { /* seguimos con el portapapeles */ }
+                    try {
+                      await navigator.clipboard.writeText(json);
+                      toast('Copia copiada al portapapeles. Pégala en una nota o un correo para guardarla.');
+                    } catch {
+                      toast('No se pudo copiar la copia en este navegador');
+                    }
                   }}
                 >
-                  ⬇️ Exportar
+                  ⬆️ Guardar copia
                 </button>
-                <button className="btn" onClick={() => fileRef.current.click()}>⬆️ Importar</button>
+                <button className="btn" onClick={() => fileRef.current.click()}>⬇️ Restaurar archivo</button>
               </div>
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/json"
+                accept="application/json,.json,.txt,text/plain"
                 hidden
                 onChange={async (e) => {
                   const f = e.target.files?.[0];
@@ -130,18 +140,50 @@ export default function Profile({ welcome, onDone }) {
                   e.target.value = '';
                 }}
               />
-              <button
-                className="btn ghost danger"
-                onClick={() => {
-                  if (confirm('¿Borrar todos los datos de este dispositivo? Exporta antes una copia si la quieres conservar.')) {
-                    const prev = state;
-                    replace({});
-                    toast('Datos borrados', () => replace(prev));
-                  }
-                }}
-              >
-                Borrar todos los datos
-              </button>
+              <details>
+                <summary className="small muted">Restaurar pegando el texto de una copia</summary>
+                <form
+                  className="stack"
+                  style={{ marginTop: 8 }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    try {
+                      const data = JSON.parse(e.target.elements.backup.value);
+                      if (!data || typeof data !== 'object' || !('profile' in data)) throw new Error();
+                      const prev = state;
+                      replace(data);
+                      e.target.reset();
+                      toast('Copia restaurada', () => replace(prev));
+                    } catch {
+                      toast('Ese texto no parece una copia de Táper');
+                    }
+                  }}
+                >
+                  <textarea id="backup" name="backup" rows={3} placeholder='{"version":1,…}' />
+                  <button className="btn">Restaurar</button>
+                </form>
+              </details>
+              {confirmWipe ? (
+                <div className="card warn stack" style={{ gap: 8 }}>
+                  <p className="small">¿Seguro? Se borra todo lo de este dispositivo. Guarda antes una copia si la quieres conservar.</p>
+                  <div className="grid2">
+                    <button className="btn" onClick={() => setConfirmWipe(false)}>Cancelar</button>
+                    <button
+                      className="btn danger"
+                      onClick={() => {
+                        const prev = state;
+                        replace({});
+                        setConfirmWipe(false);
+                        toast('Datos borrados', () => replace(prev));
+                      }}
+                    >
+                      Sí, borrar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn ghost danger" onClick={() => setConfirmWipe(true)}>Borrar todos los datos</button>
+              )}
             </section>
           </>
         )}
