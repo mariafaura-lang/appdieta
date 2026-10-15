@@ -9,6 +9,8 @@ npm test         # lógica de cálculo (vitest)
 npm run build    # estático en dist/, sirve en cualquier hosting (GitHub Pages, Netlify…)
 ```
 
+**App publicada:** https://mariafaura-lang.github.io/appdieta/ (se despliega sola con cada push; en el móvil, «Añadir a pantalla de inicio»).
+
 Los datos se guardan en `localStorage` del navegador (con exportar/importar copia en *Ajustes*). Instalable como PWA y usable sin conexión.
 
 ## Funciones
