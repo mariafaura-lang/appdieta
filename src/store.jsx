@@ -42,6 +42,7 @@ export const DEFAULT_STATE = {
   weights: [],
   steps: [],
   shopping: null,
+  pantry: [],
   plan: {},
   health: { provider: 'manual', lastSync: null },
   dismissed: {},

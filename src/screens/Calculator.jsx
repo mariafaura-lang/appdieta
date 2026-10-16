@@ -4,6 +4,7 @@ import { FOOD_BY_ID } from '../data/foods.js';
 import { batchTotals, ingredientPer100, ingredientMacros, perPortion, portionsByWeight, rawWeight, batchCost, isVegetarian, roundMacros } from '../lib/nutrition.js';
 import { uid } from '../lib/inventory.js';
 import { iso } from '../lib/dates.js';
+import { deductIngredients, haveGrams } from '../lib/pantry.js';
 import { FoodSearchSheet } from '../components/FoodSearch.jsx';
 import { Sheet, Seg, Stepper, NumInput, Field, MacroRow, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx';
 
@@ -190,6 +191,7 @@ export default function Calculator({ go }) {
         n={nTuppers}
         onConfirm={(date) => {
           update((s) => {
+            deductIngredients(s, d.ingredients);
             addBatch(s, {
               name: d.name || 'Lote',
               emoji: d.emoji,
@@ -207,7 +209,8 @@ export default function Calculator({ go }) {
             s.draft = null;
           });
           setFreezeOpen(false);
-          toast(`🧊 ${nTuppers} táperes de ${d.name || 'lote'} al congelador`);
+          const fromHome = d.ingredients.filter((i) => haveGrams(state, i.foodId) > 0).length;
+          toast(`🧊 ${nTuppers} táperes de ${d.name || 'lote'} al congelador${fromHome ? ` · descontados ${fromHome} ingredientes de casa` : ''}`);
           go('congelador');
         }}
       />

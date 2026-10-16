@@ -11,7 +11,7 @@ import { useWeightReminder } from './components/Reminders.jsx';
 
 const TABS = [
   { id: 'hoy', label: 'Hoy', icon: '☀️' },
-  { id: 'congelador', label: 'Congelador', icon: '🧊' },
+  { id: 'congelador', label: 'Casa', icon: '🧊' },
   { id: 'registrar', label: 'Registrar', icon: '+', plus: true },
   { id: 'cocinar', label: 'Cocinar', icon: '🍳' },
   { id: 'progreso', label: 'Progreso', icon: '📈' },
@@ -31,6 +31,10 @@ export default function App() {
 
   const go = (to) => {
     if (to === 'registrar') return setQuickOpen(true);
+    if (to === 'nevera') {
+      try { sessionStorage.setItem('casa-sec', 'nevera'); } catch { /* sin almacenamiento */ }
+      return setTab('congelador');
+    }
     if (to === 'plan' || to === 'calculadora' || to === 'recetas' || to === 'menu') {
       setCookSub(to);
       return setTab('cocinar');

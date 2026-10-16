@@ -6,8 +6,34 @@ import { Sheet, Field, NumInput, Stepper, Empty, useToast, fmt } from '../compon
 import { FREEZE_LABEL } from '../lib/recipes.js';
 import { reservedCounts } from '../lib/dayplan.js';
 import { USES } from './Calculator.jsx';
+import { PantryList } from './Pantry.jsx';
+import { LOCATIONS, expiringSoon } from '../lib/pantry.js';
 
-export default function Freezer({ go }) {
+export default function Home({ go }) {
+  const { state } = useStore();
+  const [sec, setSec] = useState(() => { try { return sessionStorage.getItem('casa-sec') || 'taperes'; } catch { return 'taperes'; } });
+  const choose = (v) => { setSec(v); try { sessionStorage.setItem('casa-sec', v); } catch { /* sin almacenamiento */ } };
+  const count = (loc) => (state.pantry || []).filter((i) => i.loc === loc).length;
+  const soon = expiringSoon(state).length;
+  return (
+    <>
+      <header className="topbar">
+        <div>
+          <h1>Casa</h1>
+          <div className="sub">Táperes e ingredientes que tenéis{soon ? ` · ${soon} caduca${soon === 1 ? '' : 'n'} pronto` : ''}</div>
+        </div>
+      </header>
+      <div className="chips" style={{ marginBottom: 12 }} role="tablist">
+        {[{ id: 'taperes', label: '🥡 Táperes' }, ...LOCATIONS.map((l) => ({ id: l.id, label: `${l.emoji} ${l.label}${count(l.id) ? ` ${count(l.id)}` : ''}` }))].map((t) => (
+          <button key={t.id} role="tab" aria-selected={sec === t.id} className={`chip${sec === t.id ? ' on' : ''}`} onClick={() => choose(t.id)}>{t.label}</button>
+        ))}
+      </div>
+      {sec === 'taperes' ? <Freezer go={go} /> : <PantryList loc={sec} />}
+    </>
+  );
+}
+
+function Freezer({ go }) {
   const { state, update } = useStore();
   const toast = useToast();
   const [manage, setManage] = useState(null);
@@ -27,15 +53,12 @@ export default function Freezer({ go }) {
 
   return (
     <>
-      <header className="topbar">
-        <div>
-          <h1>Congelador</h1>
-          <div className="sub num">
-            {total} {total === 1 ? 'táper' : 'táperes'} · para ~{Math.floor(total / perDay)} días ({perDay}/día)
-          </div>
+      <div className="row between" style={{ marginBottom: 12 }}>
+        <div className="small muted num">
+          {total} {total === 1 ? 'táper' : 'táperes'} · para ~{Math.floor(total / perDay)} días ({perDay}/día)
         </div>
-        <button className="icon-btn" aria-label="Añadir táperes manualmente" onClick={() => setAdding(true)}>＋</button>
-      </header>
+        <button className="btn sm" aria-label="Añadir táperes manualmente" onClick={() => setAdding(true)}>＋ Táperes</button>
+      </div>
 
       {old.length > 0 && (
         <div className="card warn" style={{ marginBottom: 12 }}>

@@ -1,6 +1,8 @@
-import { iso, dayOfWeek } from './dates.js';
+import { iso, dayOfWeek, diffDays } from './dates.js';
 import { dayIntake, dayGoals, entriesOn, weekSummary } from './targets.js';
 import { byAge, remaining, totalRemaining, ageDays, OLD_AFTER_DAYS } from './inventory.js';
+import { expiringSoon } from './pantry.js';
+import { allRecipes } from './recipes.js';
 
 /**
  * Avisos suaves para la pantalla de Hoy. Sin juicios: siempre en positivo,
@@ -46,6 +48,19 @@ export function computeNudges(state, now = new Date()) {
       icon: '🧊',
       text: stock === 0 ? 'El congelador está vacío. ¿Planeamos qué cocinar este finde?' : `Quedan ${stock} táperes. ¿Planeamos qué cocinar este finde?`,
       action: { label: 'Plan finde', to: 'plan' },
+    });
+  }
+
+  const soon = expiringSoon(state, today, 1);
+  if (soon.length) {
+    const ids = soon.map((i) => i.foodId).filter(Boolean);
+    const idea = allRecipes(state).find((r) => r.ingredients.some((g) => ids.includes(g.foodId)));
+    const names = soon.slice(0, 3).map((i) => `${i.name.toLowerCase()}${diffDays(i.expires, today) < 0 ? ' (ya pasado)' : ''}`).join(', ');
+    out.push({
+      id: `caduca-${soon.map((i) => i.id).join('-')}`,
+      icon: '🥬',
+      text: `En la nevera hay que gastar pronto: ${names}.${idea ? ` Idea: ${idea.name.toLowerCase()}.` : ''}`,
+      action: { label: 'Ver nevera', to: 'nevera' },
     });
   }
 

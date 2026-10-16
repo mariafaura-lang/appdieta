@@ -7,6 +7,7 @@ import { movingAverage, weeklyTrend } from '../src/lib/stats.js';
 import { suggestWeekend, shoppingList } from '../src/lib/planner.js';
 import { autofill, needsByMeal, reservedCounts } from '../src/lib/dayplan.js';
 import { confirmSlot } from '../src/store.jsx';
+import { addItem, deductIngredients, haveGrams, expiringSoon } from '../src/lib/pantry.js';
 import { mergeWorkouts, mergeSteps, normalizeWorkout } from '../src/lib/health.js';
 import { computeNudges } from '../src/lib/nudges.js';
 import { weekDays, addDays } from '../src/lib/dates.js';
@@ -207,5 +208,25 @@ describe('recetario y avisos', () => {
     expect(computeNudges(s, now).some((n) => n.id === 'peso')).toBe(true);
     s.dismissed['peso:2026-10-14'] = true;
     expect(computeNudges(s, now).some((n) => n.id === 'peso')).toBe(false);
+  });
+});
+
+describe('casa: congelador, nevera y despensa', () => {
+  it('suma, descuenta al cocinar (primero lo que caduca) y avisa de caducidad', () => {
+    const s = mkState();
+    addItem(s, { foodId: 'espinacas', loc: 'nevera', qty: 200, expires: '2026-10-17' });
+    addItem(s, { foodId: 'espinacas', loc: 'congelador', qty: 400 });
+    addItem(s, { foodId: 'huevo', loc: 'nevera', qty: 6, unit: 'ud' });
+    addItem(s, { foodId: 'espinacas', loc: 'nevera', qty: 100 });
+    expect(s.pantry.filter((i) => i.foodId === 'espinacas')).toHaveLength(2);
+    expect(haveGrams(s, 'espinacas')).toBe(700);
+    expect(haveGrams(s, 'huevo')).toBe(360);
+    expect(expiringSoon(s, '2026-10-16', 2).map((i) => i.foodId)).toEqual(['espinacas']);
+    const used = deductIngredients(s, [{ foodId: 'espinacas', grams: 450 }, { foodId: 'huevo', grams: 120 }, { foodId: 'arroz', grams: 300 }]);
+    expect(used).toEqual([{ foodId: 'espinacas', grams: 450 }, { foodId: 'huevo', grams: 120 }]);
+    // la nevera se gasta entera antes que el congelador
+    expect(s.pantry.find((i) => i.foodId === 'espinacas' && i.loc === 'nevera')).toBeUndefined();
+    expect(haveGrams(s, 'espinacas')).toBe(250);
+    expect(s.pantry.find((i) => i.foodId === 'huevo').qty).toBe(4);
   });
 });

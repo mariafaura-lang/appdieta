@@ -4,6 +4,7 @@ import { activeBatches, remaining } from './inventory.js';
 import { dailyTarget, proteinTarget } from './energy.js';
 import { diffDays, addDays } from './dates.js';
 import { needsByMeal, slotKcalTarget } from './dayplan.js';
+import { expiringSoon } from './pantry.js';
 
 // Ingredientes de despensa que no cuentan como "compartidos" (se tienen siempre).
 const STAPLES = new Set(['aceite_oliva', 'ajo', 'pimenton', 'comino', 'harina', 'caldo_pollo', 'caldo_verduras', 'azucar']);
@@ -53,6 +54,13 @@ export function scoreRecipe(state, recipe, info, today, slot = 'comida') {
   score -= inFreezer * 0.35;
   const recent = (state.batches || []).filter((b) => b.recipeId === recipe.id && diffDays(today, b.frozenAt) <= 14).length;
   score -= recent * 0.8;
+  // Aprovechar lo que hay en casa, sobre todo lo que caduca pronto
+  const soon = new Set(expiringSoon(state, today, 4).map((i) => i.foodId));
+  const home = new Set((state.pantry || []).map((i) => i.foodId));
+  for (const ing of recipe.ingredients) {
+    if (soon.has(ing.foodId)) score += 0.6;
+    else if (home.has(ing.foodId) && !STAPLES.has(ing.foodId)) score += 0.15;
+  }
   return score;
 }
 

@@ -4,6 +4,7 @@ import { suggestWeekend, shoppingList, shoppingText, fmtQty, sharedIngredients }
 import { freezeLabel } from '../lib/recipes.js';
 import { FOOD_BY_ID, CATEGORIES } from '../data/foods.js';
 import { iso, fmtShort } from '../lib/dates.js';
+import { haveGrams, addItem, defaultLocation, suggestedExpiry, UNIT_GRAMS } from '../lib/pantry.js';
 import { draftFromRecipe } from './Calculator.jsx';
 import { Stepper, Seg, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx';
 
@@ -27,7 +28,10 @@ export default function Planner({ setSub }) {
   const anyNeed = plan.sections.some((sec) => sec.need > 0);
 
   const makeList = () => {
-    const items = shoppingList([...allPicks, ...plan.quick], state.customFoods);
+    const items = shoppingList([...allPicks, ...plan.quick], state.customFoods).map((i) => {
+      const have = Math.round(haveGrams(state, i.foodId));
+      return { ...i, have, buy: Math.max(0, i.grams - have) };
+    });
     update((s) => {
       s.shopping = {
         createdAt: today,
@@ -124,10 +128,33 @@ function ShoppingList() {
   const { state, update } = useStore();
   const toast = useToast();
   const sh = state.shopping;
+  const items = sh.items.map((i) => ({ ...i, buy: i.buy ?? i.grams }));
+  const toBuy = items.filter((i) => i.buy > 0);
+  const atHome = items.filter((i) => i.buy <= 0);
   const groups = Object.keys(CATEGORIES)
-    .map((cat) => [cat, sh.items.filter((i) => i.cat === cat)])
+    .map((cat) => [cat, toBuy.filter((i) => i.cat === cat)])
     .filter(([, list]) => list.length);
-  const pending = sh.items.filter((i) => !sh.checked[i.foodId]);
+  const pending = toBuy.filter((i) => !sh.checked[i.foodId]);
+  const bought = toBuy.filter((i) => sh.checked[i.foodId]);
+
+  const storeBought = () => {
+    update((s) => {
+      for (const i of bought) {
+        const loc = defaultLocation(i.foodId, s.customFoods);
+        const perUnit = UNIT_GRAMS[i.foodId];
+        addItem(s, {
+          foodId: i.foodId,
+          name: i.name,
+          loc,
+          qty: perUnit ? Math.ceil(i.buy / perUnit) : Math.round(i.buy),
+          unit: perUnit ? 'ud' : 'g',
+          expires: suggestedExpiry(i.foodId, loc, iso(), s.customFoods),
+        });
+      }
+      s.shopping.stored = true;
+    });
+    toast(`🏠 ${bought.length} productos guardados en casa`);
+  };
 
   return (
     <section className="card" id="lista-compra">
@@ -135,7 +162,7 @@ function ShoppingList() {
         <h2>Lista de la compra</h2>
         <span className="small muted">{fmtShort(sh.createdAt)}</span>
       </div>
-      <p className="tiny muted" style={{ marginTop: 4 }}>{sh.recipes.join(' · ')}. Marca lo que ya tienes en casa.</p>
+      <p className="tiny muted" style={{ marginTop: 4 }}>{sh.recipes.join(' · ')}. Ya descuenta lo que tenéis apuntado en casa; marca lo que vayas comprando.</p>
       {groups.map(([cat, list]) => (
         <div key={cat} style={{ marginTop: 12 }}>
           <div className="tiny bold muted" style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>{CATEGORIES[cat]}</div>
@@ -144,18 +171,31 @@ function ShoppingList() {
             return (
               <label key={i.foodId} className={`check${done ? ' done' : ''}`}>
                 <input type="checkbox" checked={done} onChange={() => update((s) => { s.shopping.checked[i.foodId] = !done; })} />
-                <span className="grow small">{i.name}</span>
-                <span className="small num bold">{fmtQty(i.grams)}</span>
+                <span className="grow small">
+                  {i.name}
+                  {i.have > 0 && <span className="tiny muted"> · tenéis {fmtQty(i.have)}</span>}
+                </span>
+                <span className="small num bold">{fmtQty(i.buy)}</span>
               </label>
             );
           })}
         </div>
       ))}
+      {toBuy.length === 0 && <p className="small" style={{ marginTop: 12 }}>🎉 Tenéis todo en casa.</p>}
+      {atHome.length > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary className="small muted">Ya lo tenéis en casa ({atHome.length})</summary>
+          <p className="small" style={{ marginTop: 6, color: 'var(--text-2)' }}>{atHome.map((i) => `${i.name} (${fmtQty(i.grams)})`).join(' · ')}</p>
+        </details>
+      )}
+      {bought.length > 0 && !sh.stored && (
+        <button className="btn soft block" style={{ marginTop: 12 }} onClick={storeBought}>🏠 Guardar lo comprado en casa ({bought.length})</button>
+      )}
       <div className="grid2" style={{ marginTop: 12 }}>
         <button
           className="btn"
           onClick={async () => {
-            const text = `Lista de la compra (${pending.length})\n\n${shoppingText(pending)}`;
+            const text = `Lista de la compra (${pending.length})\n\n${shoppingText(pending.map((i) => ({ ...i, grams: i.buy })))}`;
             try {
               await navigator.share({ title: 'Lista de la compra', text });
               return;

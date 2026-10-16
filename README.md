@@ -27,6 +27,7 @@ Los datos se guardan en `localStorage` del navegador (con exportar/importar copi
 | 8 | **Seguimiento**: peso con media móvil de 7 días y tendencia semanal; pasos diarios; gráficas | Progreso |
 | 9 | **Plan del finde**: según menú, congelador y objetivo, calcula qué falta por tipo (desayunos de tren, comidas, cenas, postres) y propone recetas y raciones priorizando ingredientes compartidos, variedad de proteína y valoración; lista de la compra por pasillos, compartible | Cocinar → Plan finde |
 | 11 | **Menú por días**: desayuno, comida, cena y postre; días de tren con desayuno de táper que se come frío y desayunos salados rápidos en casa el resto; cenas ligeras (cremas y purés); «Rellenar» reserva táperes del congelador; en Hoy se confirma cada comida con ✓ (descuenta del congelador) y por la tarde avisa de qué pasar a la nevera para mañana | Cocinar → Menú, Hoy |
+| 12 | **Casa: congelador, nevera y despensa**: lo que tenéis (gramos o unidades, fecha de consumo), la lista de la compra descuenta lo que ya hay y «Guardar lo comprado en casa» lo apunta; al congelar un lote se descuentan sus ingredientes; aviso y recetas para lo que caduca pronto, que el plan del finde prioriza | Casa |
 | 10 | **Recordatorios y avisos suaves**: pesarse (aviso en Hoy + notificación opcional), proteína pendiente, táperes que se acaban, lotes antiguos; descartables y sin culpa | Hoy, Ajustes |
 
 ## Estructura
