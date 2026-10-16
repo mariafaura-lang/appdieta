@@ -176,6 +176,25 @@ describe('menú por días', () => {
     expect(mon.comida.done).toBeNull();
     expect(remaining(s.batches.find((b) => b.id === mon.comida.batchId))).toHaveLength(6);
   });
+  it('día de tren sin táper: planifica una receta de tren por cocinar y el finde la cuenta', () => {
+    const s = mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0] } });
+    autofill(s, '2026-10-19', 1);
+    const slot = s.plan['2026-10-19'].desayuno;
+    expect(slot.kind).toBe('receta');
+    const r = BASE_RECIPES.find((x) => x.id === slot.recipeId);
+    expect(r.cold && !r.quick).toBe(true);
+    expect(needsByMeal(s, '2026-10-19', 1).need['desayuno-tren']).toBe(1);
+    // un desayuno de tren elegido a mano en un día sin tren también cuenta
+    s.plan['2026-10-20'] = { desayuno: { kind: 'receta', recipeId: 'wraps-desayuno' } };
+    expect(needsByMeal(s, '2026-10-19', 2).need['desayuno-tren']).toBe(2);
+    const tren = suggestWeekend(s, '2026-10-19', { days: 2 }).sections.find((x) => x.key === 'desayuno-tren');
+    expect(tren.picks.map((p) => p.r.id)).toContain('wraps-desayuno');
+    // una vez cocinado, confirmar se come un táper de ese lote
+    addBatch(s, { name: 'Wraps', recipeId: 'wraps-desayuno', totals: { kcal: 2000, p: 100, c: 200, f: 60 }, mode: 'equal', portions: 5 });
+    const e = confirmSlot(s, '2026-10-20', 'desayuno');
+    expect(e.kind).toBe('tupper');
+    expect(remaining(s.batches[0])).toHaveLength(4);
+  });
   it('lo planificado en casa no cuenta como táper necesario', () => {
     const s = mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0, 1, 2, 3, 4] } });
     s.plan['2026-10-19'] = { desayuno: { kind: 'receta', recipeId: 'revuelto-claras' } };

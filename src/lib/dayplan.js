@@ -92,7 +92,12 @@ export function slotLabel(state, slot) {
   }
   if (slot.kind === 'receta') {
     const r = findRecipe(state, slot.recipeId);
-    return r ? { emoji: r.emoji, name: r.name, sub: `${r.minutes} min en casa` } : { emoji: '❔', name: 'Receta', sub: '' };
+    if (!r) return { emoji: '❔', name: 'Receta', sub: '' };
+    if (!r.quick) {
+      const b = activeBatches(state).find((x) => x.recipeId === r.id);
+      return { emoji: r.emoji, name: r.name, sub: b ? 'táper' : 'por cocinar en lote' };
+    }
+    return { emoji: r.emoji, name: r.name, sub: `${r.minutes} min en casa` };
   }
   if (slot.kind === 'fuera') return { emoji: '🍽️', name: slot.name || 'Comida fuera', sub: 'estimado' };
   return null;
@@ -126,6 +131,13 @@ export function quickRecipesFor(state, slot) {
     .sort((a, b) => (state.ratings[b.id] || 0) - (state.ratings[a.id] || 0));
 }
 
+/** Recetas de lote para un hueco (para planificar aunque aún no estén cocinadas). */
+export function batchRecipesFor(state, slot, { train = false } = {}) {
+  return allRecipes(state)
+    .filter((r) => !r.quick && r.freezes !== 'no' && mealsOf(r).includes(slot) && (!train || r.cold))
+    .sort((a, b) => (state.ratings[b.id] || 0) - (state.ratings[a.id] || 0));
+}
+
 /**
  * Rellena los huecos vacíos de los próximos días. No toca lo ya decidido.
  * Devuelve lo que no se ha podido cubrir con táperes, por hueco.
@@ -156,6 +168,10 @@ export function autofill(state, from, days) {
         reserved[best.id] = (reserved[best.id] || 0) + 1;
       } else if (slot === 'postre' && quick.length) {
         day[slot] = { kind: 'receta', recipeId: quick[i % quick.length].id };
+      } else if (train && batchRecipesFor(state, 'desayuno', { train: true }).length) {
+        // sin táper de desayuno: se planifica una receta de tren para cocinar el finde
+        day[slot] = { kind: 'receta', recipeId: batchRecipesFor(state, 'desayuno', { train: true })[0].id };
+        missing['desayuno-tren'] = (missing['desayuno-tren'] || 0) + 1;
       } else {
         const key = train ? 'desayuno-tren' : slot;
         missing[key] = (missing[key] || 0) + 1;
@@ -176,9 +192,11 @@ export function needsByMeal(state, from, days) {
     const date = addDays(from, i);
     for (const slot of slots) {
       const planned = getSlot(state, date, slot);
-      if (planned && planned.kind !== 'tupper') continue; // receta de casa o fuera: no necesita táper
+      if (planned?.done) continue;
+      const r = planned?.kind === 'receta' ? findRecipe(state, planned.recipeId) : null;
+      if (planned && planned.kind !== 'tupper' && !(r && !r.quick)) continue; // receta de casa o fuera: no necesita táper
       if (slot === 'desayuno') {
-        if (isTrainDay(state, date)) want['desayuno-tren']++;
+        if (isTrainDay(state, date) || (r && !r.quick)) want['desayuno-tren']++;
       } else want[slot]++;
     }
   }

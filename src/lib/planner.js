@@ -88,7 +88,7 @@ function pickFor(state, today, cat, need, opts, alreadyPicked) {
     .filter((r) => r.freezes !== 'no' && cat.filter(r, state) && !(opts.exclude || []).includes(r.id))
     .map((r) => ({ r, info: recipeInfo(r, state.customFoods) }))
     .filter((x) => !opts.vegetarianOnly || x.info.vegetarian)
-    .map((x) => ({ ...x, score: scoreRecipe(state, x.r, x.info, today, cat.slot) }))
+    .map((x) => ({ ...x, score: scoreRecipe(state, x.r, x.info, today, cat.slot) + ((opts.prefer || []).includes(x.r.id) ? 5 : 0) }))
     .sort((a, b) => b.score - a.score);
   if (need === 0 || candidates.length === 0) return { picks: [], alternatives: candidates.slice(0, 6) };
   const k = Math.max(1, Math.min(opts.nRecipes?.[cat.key] ?? autoCount(cat.key, need), 4));
@@ -113,6 +113,14 @@ function pickFor(state, today, cat, need, opts, alreadyPicked) {
 export function suggestWeekend(state, from, opts = {}) {
   const days = opts.days ?? 7;
   const { need, want, have } = needsByMeal(state, from, days);
+  // Recetas de lote ya elegidas en el menú: se proponen primero
+  const prefer = [];
+  for (let i = 0; i < days; i++) {
+    for (const slot of Object.values(state.plan?.[addDays(from, i)] || {})) {
+      if (slot?.kind === 'receta' && !slot.done) prefer.push(slot.recipeId);
+    }
+  }
+  opts = { ...opts, prefer };
   const sections = [];
   const picked = [];
   for (const cat of CATEGORIES_PLAN) {

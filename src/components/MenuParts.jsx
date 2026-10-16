@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore, confirmSlot, removeLogEntry } from '../store.jsx';
-import { SLOTS, candidatesFor, quickRecipesFor, reservedCounts, availableIn, slotMacros, slotLabel, isTrainDay, slotKcalTarget } from '../lib/dayplan.js';
+import { SLOTS, candidatesFor, quickRecipesFor, batchRecipesFor, reservedCounts, availableIn, slotMacros, slotLabel, isTrainDay, slotKcalTarget } from '../lib/dayplan.js';
 import { remaining, uid } from '../lib/inventory.js';
 import { allRecipes, mealsOf, recipeInfo } from '../lib/recipes.js';
 import { EATING_OUT, SIZE_LABELS } from '../data/extras.js';
@@ -66,6 +66,29 @@ export function SlotPicker({ target, onClose }) {
   const quick = quickRecipesFor(state, slotId);
   const quickOther = allRecipes(state).filter((r) => r.quick && !mealsOf(r).includes(slotId));
   const train = slotId === 'desayuno' && isTrainDay(state, date);
+  const cookedIds = new Set(batches.map((b) => b.recipeId));
+  const toCook = batchRecipesFor(state, slotId, { train: slotId === 'desayuno' }).filter((r) => !cookedIds.has(r.id));
+
+  const recipeBtn = (r, note) => {
+    const per = recipeInfo(r, state.customFoods).per;
+    return (
+      <button key={r.id} className="list-item" onClick={() => set({ kind: 'receta', recipeId: r.id })}>
+        <span className="emoji">{r.emoji}</span>
+        <span className="grow">
+          <div className="small bold">{r.name}</div>
+          <div className="tiny muted num">{fmt(per.kcal)} kcal · {Math.round(per.p)} g prot · {note || `${r.minutes} min`}</div>
+        </span>
+        {current?.recipeId === r.id && <span className="badge good">elegido</span>}
+      </button>
+    );
+  };
+  const trainSection = slotId === 'desayuno' && toCook.length > 0 && (
+    <div key="tren">
+      <div className="small bold">🚆 Para el tren · de táper (por cocinar)</div>
+      <p className="tiny muted">Se come frío. Al elegirlo, el plan del finde lo añade a lo que hay que cocinar.</p>
+      <div className="list">{toCook.map((r) => recipeBtn(r, 'se come frío'))}</div>
+    </div>
+  );
 
   const set = (value) => {
     update((s) => {
@@ -94,7 +117,7 @@ export function SlotPicker({ target, onClose }) {
     <Sheet open onClose={onClose} title={`${meta.emoji} ${meta.label}`}>
       <div className="stack">
         <p className="small muted">
-          {train ? '🚆 Día de tren: mejor un táper que se pueda comer frío. ' : ''}
+          {train ? '🚆 Día de tren: mejor un táper que se pueda comer frío. ' : slotId === 'desayuno' && !(state.settings.trainDays || []).length ? 'Marca tus días de tren en «Mis comidas» y se propondrán solos. ' : ''}
           Objetivo orientativo: ~{fmt(slotKcalTarget(state, slotId))} kcal.
         </p>
         {batches.length > 0 && (
@@ -103,26 +126,14 @@ export function SlotPicker({ target, onClose }) {
             <div className="list">{batches.map(tupperBtn)}</div>
           </div>
         )}
+        {train && trainSection}
         {quick.length > 0 && (
           <div>
-            <div className="small bold">En casa, al momento</div>
-            <div className="list">
-              {quick.map((r) => {
-                const per = recipeInfo(r, state.customFoods).per;
-                return (
-                  <button key={r.id} className="list-item" onClick={() => set({ kind: 'receta', recipeId: r.id })}>
-                    <span className="emoji">{r.emoji}</span>
-                    <span className="grow">
-                      <div className="small bold">{r.name}</div>
-                      <div className="tiny muted num">{fmt(per.kcal)} kcal · {Math.round(per.p)} g prot · {r.minutes} min</div>
-                    </span>
-                    {current?.recipeId === r.id && <span className="badge good">elegido</span>}
-                  </button>
-                );
-              })}
-            </div>
+            <div className="small bold">{slotId === 'desayuno' ? '🏠 En casa, al momento' : 'En casa, al momento'}</div>
+            <div className="list">{quick.map((r) => recipeBtn(r, `${r.minutes} min`))}</div>
           </div>
         )}
+        {!train && trainSection}
         <div>
           <div className="small bold" style={{ marginBottom: 6 }}>Comer fuera</div>
           <Seg value={size} onChange={setSize} options={SIZE_LABELS.map((l, i) => ({ value: i, label: l }))} />
@@ -132,6 +143,12 @@ export function SlotPicker({ target, onClose }) {
             ))}
           </div>
         </div>
+        {slotId !== 'desayuno' && toCook.length > 0 && (
+          <details>
+            <summary className="small muted">Recetas de lote por cocinar</summary>
+            <div className="list">{toCook.map((r) => recipeBtn(r, 'por cocinar'))}</div>
+          </details>
+        )}
         {(others.length > 0 || quickOther.length > 0) && (
           <details>
             <summary className="small muted">Otras opciones</summary>
@@ -145,7 +162,7 @@ export function SlotPicker({ target, onClose }) {
             </div>
           </details>
         )}
-        {batches.length === 0 && !quick.length && (
+        {batches.length === 0 && !quick.length && !toCook.length && (
           <p className="small muted">No hay táperes para este hueco. El planificador del finde te propondrá qué cocinar.</p>
         )}
         {current && !current.done && <button className="btn ghost danger block" onClick={() => set(null)}>Dejar sin decidir</button>}

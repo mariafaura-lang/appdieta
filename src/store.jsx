@@ -152,7 +152,11 @@ export function confirmSlot(s, date, slotId, entryId = uid()) {
     entry = eatTupper(s, slot.batchId, null, date, entryId, slotId);
   } else if (slot.kind === 'receta') {
     const r = findRecipe(s, slot.recipeId);
-    if (r) {
+    // receta de lote ya cocinada: se come un táper suyo
+    const batch = r && !r.quick && s.batches.find((b) => b.recipeId === r.id && remaining(b).length > 0);
+    if (batch) {
+      entry = eatTupper(s, batch.id, null, date, entryId, slotId);
+    } else if (r) {
       const per = recipeInfo(r, s.customFoods).per;
       entry = addLogEntry(s, { id: entryId, date, meal: slotId, kind: 'receta', name: r.name, emoji: r.emoji, recipeId: r.id, ...per });
     }
