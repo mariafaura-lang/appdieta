@@ -53,6 +53,7 @@ export const FILTERS = [
   { id: 'cheap', label: '≤ 1,50 €/ración', test: (r, i) => i.costPerServing <= 1.5 },
   { id: 'freezes', label: 'Congela bien', test: (r) => r.freezes === 'bien' && !r.quick },
   { id: 'mine', label: 'Mis recetas', test: (r) => !!r.custom },
+  { id: 'source', label: '📺 De vídeos y blogs', test: (r) => !!r.source },
 ];
 
 export const FREEZE_LABEL = {

@@ -118,6 +118,7 @@ function RecipeDetail({ recipe, onClose, onCook }) {
           <span className="badge">{fmtEur(info.costPerServing)}/táper</span>
         </div>
         {recipe.freezeNote && <p className="small" style={{ color: 'var(--text-2)' }}>{recipe.freezeNote}</p>}
+        {recipe.source && <p className="tiny muted">📺 Inspirada en: {recipe.source}. Adaptada a ingredientes de aquí y a táperes.</p>}
 
         <div>
           <div className="small bold" style={{ marginBottom: 6 }}>{recipe.quick ? 'Por ración' : 'Por táper'}</div>
