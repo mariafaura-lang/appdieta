@@ -121,6 +121,18 @@ function Freezer({ go }) {
         </div>
       )}
 
+      <details className="card flat" style={{ marginTop: 12 }}>
+        <summary className="small bold">❄️ Consejos para congelar bien</summary>
+        <ul className="small" style={{ margin: '8px 0 0', paddingLeft: 18, display: 'grid', gap: 6, color: 'var(--text-2)' }}>
+          <li><b>Enfría antes de congelar</b> (10–15 min en la encimera o un rato en la nevera): evita cristales de hielo y quemaduras de congelación.</li>
+          <li><b>Saca todo el aire</b>: envuelve burritos y sándwiches en film o aluminio y usa bolsas o táperes que cierren bien.</li>
+          <li><b>Etiqueta</b> con nombre y fecha. Aquí la fecha queda apuntada sola y te aviso a partir de {OLD_AFTER_DAYS} días.</li>
+          <li><b>Mejor en 1–2 meses.</b> Aguantan 3–6, pero pierden sabor: rota primero lo más antiguo.</li>
+          <li><b>Descongela en la nevera</b> la noche antes; los desayunos del tren se comen fríos por la mañana.</li>
+          <li>Para cocinar mucho de una vez: decide las recetas, <b>compra uno o dos días antes</b> y haz hueco en el congelador.</li>
+        </ul>
+      </details>
+
       <ManageSheet batchId={manage} onClose={() => setManage(null)} />
       <AddManualSheet open={adding} onClose={() => setAdding(false)} />
     </>
