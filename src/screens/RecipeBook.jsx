@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../store.jsx';
-import { allRecipes, recipeInfo, FILTERS, FREEZE_LABEL, scaleIngredients } from '../lib/recipes.js';
+import { allRecipes, recipeInfo, FILTERS, freezeLabel, scaleIngredients, mealsOf } from '../lib/recipes.js';
+import { addLogEntry, removeLogEntry } from '../store.jsx';
+import { uid } from '../lib/inventory.js';
 import { FOOD_BY_ID, normalize } from '../data/foods.js';
 import { draftFromRecipe } from './Calculator.jsx';
 import { Sheet, Stepper, Stars, MacroRow, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx';
@@ -12,6 +14,14 @@ const SORTS = [
   { id: 'time', label: 'Más rápidas' },
   { id: 'cost', label: 'Más baratas' },
 ];
+
+function mealTag(r) {
+  const m = mealsOf(r);
+  if (m.includes('desayuno')) return '🌅 Desayuno';
+  if (m.includes('postre')) return '🍏 Postre';
+  if (r.light) return '🌙 Cena ligera';
+  return null;
+}
 
 export default function RecipeBook({ onCook }) {
   const { state } = useStore();
@@ -57,7 +67,7 @@ export default function RecipeBook({ onCook }) {
 
       {items.length === 0 && <Empty icon="🔎"><p className="small">Ninguna receta cumple todos los filtros.</p></Empty>}
       {items.map(({ r, i, rating }) => {
-        const fz = FREEZE_LABEL[r.freezes];
+        const fz = freezeLabel(r);
         return (
           <button key={r.id} className="card recipe-card" onClick={() => setOpen(r.id)}>
             <span className="emoji">{r.emoji || '🥡'}</span>
@@ -67,10 +77,12 @@ export default function RecipeBook({ onCook }) {
                 <span><b>{fmt(i.per.kcal)}</b> kcal</span>
                 <span><b>{Math.round(i.per.p)} g</b> prot</span>
                 <span>⏱ {r.minutes} min</span>
-                <span>{fmtEur(i.costPerServing)}/táper</span>
+                <span>{fmtEur(i.costPerServing)}/{r.quick ? 'ración' : 'táper'}</span>
               </div>
               <div className="row wrap" style={{ gap: 4, marginTop: 6 }}>
                 <span className={`badge ${fz.tone}`}>{fz.icon} {fz.text}</span>
+                {mealTag(r) && <span className="badge">{mealTag(r)}</span>}
+                {r.cold && !r.quick && <span className="badge">🚆 Se come frío</span>}
                 {i.vegetarian && <span className="badge">🌱 Veg</span>}
                 {i.highProtein && <span className="badge" style={{ background: 'var(--protein-soft)' }}>💪 Proteica</span>}
                 {r.custom && <span className="badge">✎ Mía</span>}
@@ -91,7 +103,7 @@ function RecipeDetail({ recipe, onClose, onCook }) {
   const toast = useToast();
   const [servings, setServings] = useState(recipe.servings);
   const info = recipeInfo(recipe, state.customFoods);
-  const fz = FREEZE_LABEL[recipe.freezes];
+  const fz = freezeLabel(recipe);
   const ings = scaleIngredients(recipe, servings);
   const foodName = (id) => (FOOD_BY_ID[id] || state.customFoods.find((f) => f.id === id))?.name || id;
 
@@ -108,13 +120,13 @@ function RecipeDetail({ recipe, onClose, onCook }) {
         {recipe.freezeNote && <p className="small" style={{ color: 'var(--text-2)' }}>{recipe.freezeNote}</p>}
 
         <div>
-          <div className="small bold" style={{ marginBottom: 6 }}>Por táper</div>
+          <div className="small bold" style={{ marginBottom: 6 }}>{recipe.quick ? 'Por ración' : 'Por táper'}</div>
           <MacroRow m={info.per} />
         </div>
 
         <div className="row between">
-          <span className="bold">Táperes</span>
-          <Stepper value={servings} onChange={setServings} max={20} label="Táperes" />
+          <span className="bold">{recipe.quick ? 'Raciones' : 'Táperes'}</span>
+          <Stepper value={servings} onChange={setServings} max={20} label="Raciones" />
         </div>
 
         <div className="card flat" style={{ padding: '4px 16px' }}>
@@ -141,16 +153,30 @@ function RecipeDetail({ recipe, onClose, onCook }) {
           <Stars value={state.ratings[recipe.id] || 0} onChange={(n) => update((s) => { s.ratings[recipe.id] = n; })} />
         </div>
 
-        <button
-          className="btn primary block"
-          onClick={() => {
-            update((s) => { s.draft = draftFromRecipe(recipe, servings, s.customFoods); });
-            onClose();
-            onCook();
-          }}
-        >
-          🍳 Cocinar {servings} táperes
-        </button>
+        {recipe.quick ? (
+          <button
+            className="btn primary block"
+            onClick={() => {
+              const id = uid();
+              update((s) => addLogEntry(s, { id, kind: 'receta', name: recipe.name, emoji: recipe.emoji, recipeId: recipe.id, ...info.per }));
+              onClose();
+              toast(`${recipe.emoji} ${recipe.name} apuntado`, () => update((s) => removeLogEntry(s, id)));
+            }}
+          >
+            ✓ Me lo he tomado (1 ración)
+          </button>
+        ) : (
+          <button
+            className="btn primary block"
+            onClick={() => {
+              update((s) => { s.draft = draftFromRecipe(recipe, servings, s.customFoods); });
+              onClose();
+              onCook();
+            }}
+          >
+            🍳 Cocinar {servings} táperes
+          </button>
+        )}
         {recipe.custom && (
           <button
             className="btn ghost danger block"

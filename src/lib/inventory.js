@@ -11,7 +11,7 @@ export const VERY_OLD_AFTER_DAYS = 90;
  * Crea un lote congelado a partir de los totales calculados.
  * mode 'equal': `portions` táperes iguales. mode 'weight': un táper por peso.
  */
-export function makeBatch({ name, emoji, recipeId, totals, mode, portions, potWeight, tupperWeights, frozenAt, freezes }) {
+export function makeBatch({ name, emoji, recipeId, totals, mode, portions, potWeight, tupperWeights, frozenAt, freezes, meals, light }) {
   let list;
   if (mode === 'weight') {
     const ws = tupperWeights.map(Number).filter((w) => w > 0);
@@ -27,6 +27,8 @@ export function makeBatch({ name, emoji, recipeId, totals, mode, portions, potWe
     emoji: emoji || '🥡',
     recipeId: recipeId || null,
     freezes: freezes || 'bien',
+    ...(meals?.length ? { meals } : {}),
+    ...(light != null ? { light } : {}),
     frozenAt: frozenAt || iso(),
     portions: list.map((p) => ({ id: uid(), eatenAt: null, ...p })),
   };

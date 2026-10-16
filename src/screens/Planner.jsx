@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../store.jsx';
-import { suggestPlan, shoppingList, shoppingText, fmtQty, sharedIngredients, tupperShare } from '../lib/planner.js';
-import { FREEZE_LABEL } from '../lib/recipes.js';
-import { dailyTarget } from '../lib/energy.js';
+import { suggestWeekend, shoppingList, shoppingText, fmtQty, sharedIngredients } from '../lib/planner.js';
+import { freezeLabel } from '../lib/recipes.js';
 import { FOOD_BY_ID, CATEGORIES } from '../data/foods.js';
 import { iso, fmtShort } from '../lib/dates.js';
 import { draftFromRecipe } from './Calculator.jsx';
@@ -10,28 +9,32 @@ import { Stepper, Seg, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx
 
 export default function Planner({ setSub }) {
   const { state, update } = useStore();
-  const toast = useToast();
   const today = iso();
   const [days, setDays] = useState(7);
-  const [nRecipes, setNRecipes] = useState(0); // 0 = automático
   const [veg, setVeg] = useState(false);
   const [exclude, setExclude] = useState([]);
   const [overrides, setOverrides] = useState({}); // id -> servings
 
   const plan = useMemo(
-    () => suggestPlan(state, today, { days, nRecipes: nRecipes || undefined, vegetarianOnly: veg, exclude }),
-    [state, today, days, nRecipes, veg, exclude],
+    () => suggestWeekend(state, today, { days, vegetarianOnly: veg, exclude }),
+    [state, today, days, veg, exclude],
   );
-  const picks = plan.picks.map((p) => ({ ...p, servings: overrides[p.r.id] ?? p.servings }));
-  const totalNew = picks.reduce((s, p) => s + p.servings, 0);
-  const shared = sharedIngredients(picks.map((p) => p.r));
-  const cost = picks.reduce((s, p) => s + p.info.costPerServing * p.servings, 0);
-  const perTupper = state.profile.weightKg ? Math.round(dailyTarget(state.profile) * tupperShare(state.settings.tuppersPerDay)) : null;
+  const withServings = (p) => ({ ...p, servings: overrides[p.r.id] ?? p.servings });
+  const allPicks = plan.sections.flatMap((sec) => sec.picks.map(withServings));
+  const totalNew = allPicks.reduce((s, p) => s + p.servings, 0);
+  const cost = allPicks.reduce((s, p) => s + p.info.costPerServing * p.servings, 0);
+  const shared = sharedIngredients(allPicks.map((p) => p.r));
+  const anyNeed = plan.sections.some((sec) => sec.need > 0);
 
   const makeList = () => {
-    const items = shoppingList(picks, state.customFoods);
+    const items = shoppingList([...allPicks, ...plan.quick], state.customFoods);
     update((s) => {
-      s.shopping = { createdAt: today, recipes: picks.map((p) => `${p.r.name} ×${p.servings}`), items, checked: {} };
+      s.shopping = {
+        createdAt: today,
+        recipes: [...allPicks.map((p) => `${p.r.name} ×${p.servings}`), ...plan.quick.map((q) => `${q.r.name} ×${q.servings} (en casa)`)],
+        items,
+        checked: {},
+      };
     });
     setTimeout(() => document.getElementById('lista-compra')?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
@@ -43,65 +46,74 @@ export default function Planner({ setSub }) {
           <span className="bold">Días a cubrir</span>
           <Stepper value={days} onChange={setDays} min={1} max={14} label="Días a cubrir" />
         </div>
-        <div className="row between">
-          <span className="bold">Recetas distintas</span>
-          <div style={{ width: 190 }}>
-            <Seg value={nRecipes} onChange={setNRecipes} options={[{ value: 0, label: 'Auto' }, { value: 2, label: '2' }, { value: 3, label: '3' }]} />
-          </div>
-        </div>
         <label className="toggle"><span className="small bold">Solo vegetarianas</span><input type="checkbox" checked={veg} onChange={(e) => setVeg(e.target.checked)} /></label>
         <p className="small" style={{ color: 'var(--text-2)' }}>
-          Tienes <b>{plan.stock}</b> táperes; para {days} días a {state.settings.tuppersPerDay}/día necesitas{' '}
-          <b>{plan.need > 0 ? `${plan.need} más` : 'ninguno más 🎉'}</b>.
-          {perTupper && <> Buscamos táperes de ~{fmt(perTupper)} kcal para encajar en tu objetivo.</>}
+          Cuento lo que hay en el congelador y lo que ya está decidido en tu <button className="btn sm ghost" style={{ padding: '0 4px', minHeight: 0, textDecoration: 'underline' }} onClick={() => setSub('menu')}>menú</button>
+          {(state.settings.trainDays || []).length === 0 && ' (aún no has marcado días de tren)'}.
         </p>
+        <div className="grid4" style={{ gridTemplateColumns: `repeat(${Math.max(1, plan.sections.length)}, 1fr)`, textAlign: 'center' }}>
+          {plan.sections.map((sec) => (
+            <div key={sec.key} className="tiny">
+              <div>{sec.emoji}</div>
+              <b className="num" style={{ fontSize: '1rem', color: sec.need ? 'var(--text)' : 'var(--accent)' }}>{sec.need ? `+${sec.need}` : '✓'}</b>
+              <div className="muted">{sec.label.split(' ')[0].toLowerCase()}</div>
+            </div>
+          ))}
+        </div>
       </section>
 
-      {plan.need === 0 ? (
+      {!anyNeed ? (
         <div className="card"><Empty icon="🧊"><p>Con lo que hay en el congelador tienes los días cubiertos. Aprovecha el finde para descansar.</p></Empty></div>
-      ) : picks.length === 0 ? (
-        <div className="card"><Empty icon="🤷"><p className="small">No hay recetas que cumplan los filtros.</p></Empty></div>
       ) : (
         <>
           <div className="section-title" style={{ marginTop: 6 }}>
             <h2>Propuesta: {totalNew} táperes</h2>
             <span className="small muted">{fmtEur(cost)} aprox.</span>
           </div>
-          {picks.map((p) => {
-            const fz = FREEZE_LABEL[p.r.freezes];
-            return (
-              <div key={p.r.id} className="card">
-                <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
-                  <span className="emoji">{p.r.emoji}</span>
-                  <div className="grow">
-                    <div className="bold">{p.r.name}</div>
-                    <div className="kv" style={{ marginTop: 4 }}>
-                      <span><b>{fmt(p.info.per.kcal)}</b> kcal</span>
-                      <span><b>{Math.round(p.info.per.p)} g</b> prot</span>
-                      <span>⏱ {p.r.minutes} min</span>
-                      {p.r.freezes !== 'bien' && <span>{fz.icon} {fz.text}</span>}
+          {plan.sections.filter((sec) => sec.need > 0).map((sec) => (
+            <div key={sec.key} className="stack" style={{ gap: 8 }}>
+              <div className="small bold">{sec.emoji} {sec.label} <span className="muted" style={{ fontWeight: 400 }}>· faltan {sec.need} (tienes {sec.have} de {sec.want})</span></div>
+              {sec.picks.length === 0 && <p className="small muted">No hay recetas de este tipo con los filtros actuales.</p>}
+              {sec.picks.map(withServings).map((p) => {
+                const fz = freezeLabel(p.r);
+                return (
+                  <div key={p.r.id} className="card">
+                    <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
+                      <span className="emoji">{p.r.emoji}</span>
+                      <div className="grow">
+                        <div className="bold">{p.r.name}</div>
+                        <div className="kv" style={{ marginTop: 4 }}>
+                          <span><b>{fmt(p.info.per.kcal)}</b> kcal</span>
+                          <span><b>{Math.round(p.info.per.p)} g</b> prot</span>
+                          <span>⏱ {p.r.minutes} min</span>
+                          {p.r.freezes !== 'bien' && <span>{fz.icon} {fz.text}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="row between" style={{ marginTop: 10 }}>
+                      <Stepper value={p.servings} min={1} max={20} onChange={(v) => setOverrides((o) => ({ ...o, [p.r.id]: v }))} label="Táperes" />
+                      <div className="row">
+                        <button className="btn sm" onClick={() => setExclude((e) => [...e, p.r.id])}>Cambiar</button>
+                        <button className="btn sm soft" onClick={() => { update((s) => { s.draft = draftFromRecipe(p.r, p.servings, s.customFoods); }); setSub('calculadora'); }}>Cocinar</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="row between" style={{ marginTop: 10 }}>
-                  <Stepper value={p.servings} min={1} max={20} onChange={(v) => setOverrides((o) => ({ ...o, [p.r.id]: v }))} label="Táperes" />
-                  <div className="row">
-                    <button className="btn sm" onClick={() => setExclude((e) => [...e, p.r.id])}>Cambiar</button>
-                    <button className="btn sm soft" onClick={() => { update((s) => { s.draft = draftFromRecipe(p.r, p.servings, s.customFoods); }); setSub('calculadora'); }}>Cocinar</button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
           {shared.length > 0 && (
             <p className="small" style={{ color: 'var(--text-2)' }}>
               🧺 Comparten: {shared.map((id) => FOOD_BY_ID[id]?.name.toLowerCase() || id).join(', ')}. Compras menos variedad y aprovechas los paquetes.
             </p>
           )}
           {exclude.length > 0 && <button className="btn sm ghost" onClick={() => setExclude([])}>Restaurar descartadas ({exclude.length})</button>}
-          <button className="btn primary block" onClick={makeList}>🛒 Generar lista de la compra</button>
         </>
       )}
+      {plan.quick.length > 0 && (
+        <p className="small muted">También van a la lista los ingredientes de lo que harás en casa: {plan.quick.map((q) => `${q.r.name.toLowerCase()} ×${q.servings}`).join(', ')}.</p>
+      )}
+      {(anyNeed || plan.quick.length > 0) && <button className="btn primary block" onClick={makeList}>🛒 Generar lista de la compra</button>}
 
       {state.shopping && <ShoppingList />}
     </div>

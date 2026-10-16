@@ -4,6 +4,7 @@ import { iso, parse, DOW_LONG, dayOfWeek, fmtShort } from '../lib/dates.js';
 import { WeekCard, DayCard } from '../components/Summary.jsx';
 import { QuickLogPanel } from '../components/QuickLog.jsx';
 import { Nudges } from '../components/Nudges.jsx';
+import { PlanToday } from '../components/PlanToday.jsx';
 import { useToast, fmt } from '../components/ui.jsx';
 
 export default function Today({ go }) {
@@ -39,9 +40,10 @@ export default function Today({ go }) {
         <Nudges go={go} />
         <WeekCard today={today} />
         <DayCard date={today} />
+        <PlanToday go={go} />
       </div>
 
-      <div className="section-title"><h2>Registro rápido</h2></div>
+      <div className="section-title"><h2>Registro rápido</h2><span className="small muted">lo que no estaba en el menú</span></div>
       <QuickLogPanel compact />
 
       <div className="section-title">

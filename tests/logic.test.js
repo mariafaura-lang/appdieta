@@ -4,7 +4,9 @@ import { bmr, tdee, dailyTarget, proteinTarget } from '../src/lib/energy.js';
 import { plannedTarget, dayTarget, weekSummary } from '../src/lib/targets.js';
 import { makeBatch, remaining } from '../src/lib/inventory.js';
 import { movingAverage, weeklyTrend } from '../src/lib/stats.js';
-import { suggestPlan, shoppingList } from '../src/lib/planner.js';
+import { suggestWeekend, shoppingList } from '../src/lib/planner.js';
+import { autofill, needsByMeal, reservedCounts } from '../src/lib/dayplan.js';
+import { confirmSlot } from '../src/store.jsx';
 import { mergeWorkouts, mergeSteps, normalizeWorkout } from '../src/lib/health.js';
 import { computeNudges } from '../src/lib/nudges.js';
 import { weekDays, addDays } from '../src/lib/dates.js';
@@ -120,24 +122,63 @@ describe('seguimiento', () => {
   });
 });
 
-describe('planificador', () => {
-  it('propone recetas que congelan y cubren lo que falta', () => {
-    const s = mkState();
-    const plan = suggestPlan(s, '2026-10-17', { days: 5 });
-    expect(plan.need).toBe(10);
-    expect(plan.picks.reduce((a, p) => a + p.servings, 0)).toBe(10);
-    expect(plan.picks.every((p) => p.r.freezes !== 'no')).toBe(true);
-    const list = shoppingList(plan.picks);
-    expect(list.length).toBeGreaterThan(3);
+describe('planificador del finde', () => {
+  // 2026-10-17 es sábado; tren lunes y miércoles
+  const st = (extra = {}) => mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0, 2] }, ...extra });
+  it('pide táperes por tipo de comida según el menú', () => {
+    const plan = suggestWeekend(st(), '2026-10-19', { days: 5 });
+    const by = Object.fromEntries(plan.sections.map((x) => [x.key, x]));
+    expect(by['desayuno-tren'].need).toBe(2);
+    expect(by.comida.need).toBe(5);
+    expect(by.cena.need).toBe(5);
+    expect(by.cena.picks.every((p) => p.r.light)).toBe(true);
+    expect(by['desayuno-tren'].picks.every((p) => p.r.cold && !p.r.quick)).toBe(true);
+    for (const sec of plan.sections) expect(sec.picks.every((p) => p.r.freezes !== 'no')).toBe(true);
+    expect(by.comida.picks.reduce((a, p) => a + p.servings, 0)).toBeGreaterThanOrEqual(5);
+    expect(shoppingList(plan.sections.flatMap((x) => x.picks)).length).toBeGreaterThan(3);
   });
-  it('no propone nada si el congelador ya cubre', () => {
-    const s = mkState();
-    addBatch(s, { name: 'x', totals: { kcal: 5000, p: 300, c: 0, f: 0 }, mode: 'equal', portions: 14 });
-    expect(suggestPlan(s, '2026-10-17', { days: 7 }).picks).toHaveLength(0);
+  it('no propone comidas si el congelador ya cubre', () => {
+    const s = st();
+    addBatch(s, { name: 'x', totals: { kcal: 7000, p: 300, c: 0, f: 0 }, mode: 'equal', portions: 14, meals: ['comida', 'cena'] });
+    const by = Object.fromEntries(suggestWeekend(s, '2026-10-19', { days: 7 }).sections.map((x) => [x.key, x]));
+    expect(by.comida.need).toBe(0);
+    expect(by.comida.picks).toHaveLength(0);
+    // las cenas ligeras siguen faltando: el guiso no es crema
+    expect(by.cena.need).toBe(7);
   });
   it('solo vegetarianas', () => {
-    const plan = suggestPlan(mkState(), '2026-10-17', { days: 7, vegetarianOnly: true });
-    expect(plan.picks.every((p) => p.info.vegetarian)).toBe(true);
+    const plan = suggestWeekend(st(), '2026-10-19', { days: 7, vegetarianOnly: true });
+    expect(plan.sections.every((sec) => sec.picks.every((p) => p.info.vegetarian))).toBe(true);
+  });
+});
+
+describe('menú por días', () => {
+  it('rellena con táperes del tipo correcto, reserva y confirma', () => {
+    const s = mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0] } });
+    addBatch(s, { name: 'Muffins', recipeId: 'muffins-huevo', totals: { kcal: 1200, p: 120, c: 20, f: 70 }, mode: 'equal', portions: 4 });
+    addBatch(s, { name: 'Crema', recipeId: 'crema-calabacin-tofu', totals: { kcal: 1000, p: 50, c: 80, f: 40 }, mode: 'equal', portions: 5 });
+    addBatch(s, { name: 'Chili', recipeId: 'chili-con-carne', totals: { kcal: 3000, p: 200, c: 300, f: 90 }, mode: 'equal', portions: 6 });
+    const missing = autofill(s, '2026-10-19', 2); // lunes (tren) y martes
+    const mon = s.plan['2026-10-19'];
+    const tue = s.plan['2026-10-20'];
+    expect(s.batches.find((b) => b.id === mon.desayuno.batchId).name).toBe('Muffins');
+    expect(tue.desayuno.kind).toBe('receta'); // en casa, receta rápida
+    expect(s.batches.find((b) => b.id === mon.cena.batchId).name).toBe('Crema');
+    expect(s.batches.find((b) => b.id === mon.comida.batchId).name).toBe('Chili');
+    expect(missing).toEqual({});
+    expect(reservedCounts(s, '2026-10-19')[mon.comida.batchId]).toBe(2);
+    const e = confirmSlot(s, '2026-10-19', 'comida');
+    expect(e.meal).toBe('comida');
+    expect(remaining(s.batches.find((b) => b.id === mon.comida.batchId))).toHaveLength(5);
+    expect(reservedCounts(s, '2026-10-19')[mon.comida.batchId]).toBe(1);
+    removeLogEntry(s, e.id);
+    expect(mon.comida.done).toBeNull();
+    expect(remaining(s.batches.find((b) => b.id === mon.comida.batchId))).toHaveLength(6);
+  });
+  it('lo planificado en casa no cuenta como táper necesario', () => {
+    const s = mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0, 1, 2, 3, 4] } });
+    s.plan['2026-10-19'] = { desayuno: { kind: 'receta', recipeId: 'revuelto-claras' } };
+    expect(needsByMeal(s, '2026-10-19', 5).need['desayuno-tren']).toBe(4);
   });
 });
 
@@ -156,7 +197,7 @@ describe('recetario y avisos', () => {
   it('todas las recetas usan alimentos existentes y tienen macros razonables', () => {
     for (const r of BASE_RECIPES) {
       const i = recipeInfo(r);
-      expect(i.per.kcal, r.name).toBeGreaterThan(200);
+      expect(i.per.kcal, r.name).toBeGreaterThan(80);
       expect(i.per.kcal, r.name).toBeLessThan(900);
     }
   });

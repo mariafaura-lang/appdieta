@@ -4,6 +4,8 @@ import { byAge, remaining, ageDays, ageStatus, totalRemaining, uid, OLD_AFTER_DA
 import { iso, fmtShort, fmtRelative } from '../lib/dates.js';
 import { Sheet, Field, NumInput, Stepper, Empty, useToast, fmt } from '../components/ui.jsx';
 import { FREEZE_LABEL } from '../lib/recipes.js';
+import { reservedCounts } from '../lib/dayplan.js';
+import { USES } from './Calculator.jsx';
 
 export default function Freezer({ go }) {
   const { state, update } = useStore();
@@ -15,6 +17,7 @@ export default function Freezer({ go }) {
   const total = totalRemaining(state);
   const perDay = Number(state.settings.tuppersPerDay) || 2;
   const old = batches.filter((b) => ageStatus(b, today) !== 'ok');
+  const reserved = reservedCounts(state, today);
 
   const eat = (b) => {
     const id = uid();
@@ -82,6 +85,7 @@ export default function Freezer({ go }) {
                   <div className="center">
                     <div className="hero-number" style={{ fontSize: '1.8rem' }}>{rem.length}</div>
                     <div className="tiny muted">de {b.portions.length}</div>
+                    {reserved[b.id] > 0 && <div className="tiny" style={{ color: reserved[b.id] > rem.length ? 'var(--bad)' : 'var(--accent)' }}>📅 {reserved[b.id]} en menú</div>}
                   </div>
                 </div>
                 <div className="row" style={{ marginTop: 12 }}>
@@ -157,6 +161,7 @@ function AddManualSheet({ open, onClose }) {
   const [kcal, setKcal] = useState('');
   const [p, setP] = useState('');
   const [date, setDate] = useState(iso());
+  const [use, setUse] = useState('principal');
   return (
     <Sheet open={open} onClose={onClose} title="Añadir táperes que ya tengo">
       <form
@@ -173,6 +178,8 @@ function AddManualSheet({ open, onClose }) {
               portions: n,
               totals: { kcal: k * n, p: prot * n, c: ((rest * 0.55) / 4) * n, f: ((rest * 0.45) / 9) * n },
               frozenAt: date,
+              meals: USES.find((u) => u.id === use).meals,
+              light: USES.find((u) => u.id === use).light || undefined,
             }),
           );
           setName(''); setKcal(''); setP('');
@@ -181,6 +188,11 @@ function AddManualSheet({ open, onClose }) {
       >
         <p className="small muted">Para lo que ya está en el congelador. Si no sabes las calorías, pon una estimación; puedes calcularlas en la calculadora de lote.</p>
         <Field label="Qué es"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej.: lentejas de mamá" /></Field>
+        <Field label="Para">
+          <select id="uso-manual" value={use} onChange={(e) => setUse(e.target.value)}>
+            {USES.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+          </select>
+        </Field>
         <div className="row between">
           <span className="small bold">Número de táperes</span>
           <Stepper value={n} onChange={setN} />

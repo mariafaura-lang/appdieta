@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { iso } from './lib/dates.js';
 import { uid, makeBatch, remaining } from './lib/inventory.js';
+import { findRecipe, recipeInfo } from './lib/recipes.js';
+import { estimateMacros } from './data/extras.js';
 
 const KEY = 'tuper:v1';
 export const SCHEMA_VERSION = 1;
@@ -25,6 +27,10 @@ export const DEFAULT_STATE = {
     reminderHour: 9,
     tuppersPerDay: 2,
     notifications: false,
+    meals: { desayuno: true, comida: true, cena: true, postre: true },
+    trainDays: [],
+    lightDinner: true,
+    thawHour: 19,
   },
   customFoods: [],
   myRecipes: [],
@@ -36,6 +42,7 @@ export const DEFAULT_STATE = {
   weights: [],
   steps: [],
   shopping: null,
+  plan: {},
   health: { provider: 'manual', lastSync: null },
   dismissed: {},
 };
@@ -45,6 +52,8 @@ export function migrate(raw) {
   const s = { ...structuredClone(DEFAULT_STATE), ...raw };
   s.profile = { ...DEFAULT_STATE.profile, ...(raw.profile || {}) };
   s.settings = { ...DEFAULT_STATE.settings, ...(raw.settings || {}) };
+  s.settings.meals = { ...DEFAULT_STATE.settings.meals, ...(raw.settings?.meals || {}) };
+  s.plan = raw.plan || {};
   s.version = SCHEMA_VERSION;
   return s;
 }
@@ -96,7 +105,7 @@ export function addLogEntry(s, entry) {
 }
 
 /** "Me he comido 1 táper de X": descuenta del inventario y registra. */
-export function eatTupper(s, batchId, portionId, date = iso(), entryId = uid()) {
+export function eatTupper(s, batchId, portionId, date = iso(), entryId = uid(), meal) {
   const b = s.batches.find((x) => x.id === batchId);
   if (!b) return null;
   const portion = portionId ? b.portions.find((p) => p.id === portionId && !p.eatenAt) : remaining(b)[0];
@@ -105,6 +114,7 @@ export function eatTupper(s, batchId, portionId, date = iso(), entryId = uid()) 
   return addLogEntry(s, {
     id: entryId,
     date,
+    meal,
     kind: 'tupper',
     name: `Táper de ${b.name}`,
     emoji: b.emoji,
@@ -126,6 +136,30 @@ export function removeLogEntry(s, entryId) {
     if (portion) portion.eatenAt = null;
   }
   s.log = s.log.filter((x) => x.id !== entryId);
+  // si venía de confirmar el menú, el hueco vuelve a quedar pendiente
+  for (const day of Object.values(s.plan || {})) {
+    for (const slot of Object.values(day)) if (slot?.done === entryId) slot.done = null;
+  }
+}
+
+/** Confirma un hueco del menú: registra lo comido (y descuenta el táper). */
+export function confirmSlot(s, date, slotId, entryId = uid()) {
+  const slot = s.plan?.[date]?.[slotId];
+  if (!slot || slot.done) return null;
+  let entry = null;
+  if (slot.kind === 'tupper') {
+    entry = eatTupper(s, slot.batchId, null, date, entryId, slotId);
+  } else if (slot.kind === 'receta') {
+    const r = findRecipe(s, slot.recipeId);
+    if (r) {
+      const per = recipeInfo(r, s.customFoods).per;
+      entry = addLogEntry(s, { id: entryId, date, meal: slotId, kind: 'receta', name: r.name, emoji: r.emoji, recipeId: r.id, ...per });
+    }
+  } else if (slot.kind === 'fuera') {
+    entry = addLogEntry(s, { id: entryId, date, meal: slotId, kind: 'fuera', name: slot.name || 'Comida fuera', emoji: '🍽️', ...estimateMacros(Number(slot.kcal) || 0) });
+  }
+  if (entry) slot.done = entry.id;
+  return entry;
 }
 
 export function addBatch(s, params) {

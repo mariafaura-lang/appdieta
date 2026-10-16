@@ -1,16 +1,12 @@
 import { FOOD_BY_ID, CATEGORIES } from '../data/foods.js';
-import { allRecipes, recipeInfo } from './recipes.js';
+import { allRecipes, recipeInfo, mealsOf, findRecipe } from './recipes.js';
 import { activeBatches, remaining } from './inventory.js';
 import { dailyTarget, proteinTarget } from './energy.js';
-import { diffDays } from './dates.js';
+import { diffDays, addDays } from './dates.js';
+import { needsByMeal, slotKcalTarget } from './dayplan.js';
 
 // Ingredientes de despensa que no cuentan como "compartidos" (se tienen siempre).
 const STAPLES = new Set(['aceite_oliva', 'ajo', 'pimenton', 'comino', 'harina', 'caldo_pollo', 'caldo_verduras', 'azucar']);
-
-/** Fracción de las kcal del día que suele ocupar un táper. */
-export function tupperShare(tuppersPerDay) {
-  return { 1: 0.4, 2: 0.35, 3: 0.27, 4: 0.22 }[tuppersPerDay] || 0.35;
-}
 
 function mainProteinGroup(recipe) {
   let best = null;
@@ -27,12 +23,23 @@ function keyIngredients(recipe) {
   return new Set(recipe.ingredients.map((i) => i.foodId).filter((id) => !STAPLES.has(id)));
 }
 
-/** Puntúa una receta para el plan según objetivo, variedad y valoración. */
-export function scoreRecipe(state, recipe, info, today) {
-  const T = dailyTarget(state.profile);
-  const perDay = Number(state.settings.tuppersPerDay) || 2;
-  const ideal = T * tupperShare(perDay);
-  const idealProtein = (proteinTarget(state.profile) * 0.8) / (perDay + 1);
+/** Tipos de táper que planifica el finde y qué recetas valen para cada uno. */
+export const CATEGORIES_PLAN = [
+  { key: 'desayuno-tren', slot: 'desayuno', label: 'Desayunos para el tren', emoji: '🚆',
+    filter: (r) => mealsOf(r).includes('desayuno') && r.cold && !r.quick },
+  { key: 'comida', slot: 'comida', label: 'Comidas', emoji: '🍽️',
+    filter: (r) => mealsOf(r).includes('comida') && !r.light && !r.quick },
+  { key: 'cena', slot: 'cena', label: 'Cenas', emoji: '🌙',
+    filter: (r, st) => mealsOf(r).includes('cena') && !r.quick && (st.settings.lightDinner === false || r.light) },
+  { key: 'postre', slot: 'postre', label: 'Postres', emoji: '🍏',
+    filter: (r) => mealsOf(r).includes('postre') && !r.quick },
+];
+
+/** Puntúa una receta para el plan según objetivo del hueco, variedad y valoración. */
+export function scoreRecipe(state, recipe, info, today, slot = 'comida') {
+  const ideal = slotKcalTarget(state, slot);
+  const share = ideal / dailyTarget(state.profile);
+  const idealProtein = proteinTarget(state.profile) * share;
   const diff = (info.per.kcal - ideal) / ideal;
   let score = 0;
   score -= diff > 0 ? diff * 4 : -diff * 2; // pasarse penaliza más que quedarse corto
@@ -61,46 +68,62 @@ export function sharedIngredients(recipes) {
   return [...counts.entries()].filter(([, n]) => n > 1).map(([id]) => id);
 }
 
-/**
- * Sugiere qué cocinar el finde.
- * opts: { days, nRecipes, vegetarianOnly, exclude: [ids] }
- */
-export function suggestPlan(state, today, opts = {}) {
-  const days = opts.days ?? 7;
-  const perDay = Number(state.settings.tuppersPerDay) || 2;
-  const stock = activeBatches(state).reduce((s, b) => s + remaining(b).length, 0);
-  const need = Math.max(0, days * perDay - stock);
-  const k = Math.max(1, Math.min(opts.nRecipes ?? (need > 10 ? 3 : need > 5 ? 2 : 1), 4));
+function autoCount(key, need) {
+  if (key === 'comida') return need > 10 ? 3 : need > 5 ? 2 : 1;
+  if (key === 'cena') return need > 6 ? 2 : 1;
+  return 1;
+}
 
+/** Elige recetas para una categoría, premiando compartir ingredientes con lo ya elegido. */
+function pickFor(state, today, cat, need, opts, alreadyPicked) {
   const candidates = allRecipes(state)
-    .filter((r) => r.freezes !== 'no' && !(opts.exclude || []).includes(r.id))
+    .filter((r) => r.freezes !== 'no' && cat.filter(r, state) && !(opts.exclude || []).includes(r.id))
     .map((r) => ({ r, info: recipeInfo(r, state.customFoods) }))
     .filter((x) => !opts.vegetarianOnly || x.info.vegetarian)
-    .map((x) => ({ ...x, score: scoreRecipe(state, x.r, x.info, today) }))
+    .map((x) => ({ ...x, score: scoreRecipe(state, x.r, x.info, today, cat.slot) }))
     .sort((a, b) => b.score - a.score);
-
-  if (need === 0 || candidates.length === 0) return { need, stock, days, picks: [], alternatives: candidates.slice(0, 8) };
-
-  const pool = candidates.slice(0, 12);
+  if (need === 0 || candidates.length === 0) return { picks: [], alternatives: candidates.slice(0, 6) };
+  const k = Math.max(1, Math.min(opts.nRecipes?.[cat.key] ?? autoCount(cat.key, need), 4));
+  const pool = candidates.slice(0, 10);
   const kk = Math.min(k, pool.length);
   let best = null;
   for (const combo of combinations(pool, kk)) {
     const recipes = combo.map((c) => c.r);
-    const shared = sharedIngredients(recipes).length;
+    const shared = sharedIngredients([...recipes, ...alreadyPicked]).length;
     const groups = new Set(recipes.map(mainProteinGroup)).size;
     const total = combo.reduce((s, c) => s + c.score, 0) + shared * 0.35 + (groups - 1) * 0.6;
     if (!best || total > best.total) best = { combo, total };
   }
-
   const picks = splitServings(best.combo, need);
-  return {
-    need,
-    stock,
-    days,
-    picks,
-    shared: sharedIngredients(picks.map((p) => p.r)),
-    alternatives: candidates.filter((c) => !picks.some((p) => p.r.id === c.r.id)).slice(0, 8),
-  };
+  return { picks, alternatives: candidates.filter((c) => !picks.some((p) => p.r.id === c.r.id)).slice(0, 6) };
+}
+
+/**
+ * Sugiere qué cocinar el finde, por tipo de táper, según el menú y el congelador.
+ * opts: { days, vegetarianOnly, exclude: [ids], nRecipes: { comida: 2, … } }
+ */
+export function suggestWeekend(state, from, opts = {}) {
+  const days = opts.days ?? 7;
+  const { need, want, have } = needsByMeal(state, from, days);
+  const sections = [];
+  const picked = [];
+  for (const cat of CATEGORIES_PLAN) {
+    if (!want[cat.key]) continue;
+    const res = pickFor(state, from, cat, need[cat.key], opts, picked);
+    picked.push(...res.picks.map((p) => p.r));
+    sections.push({ ...cat, need: need[cat.key], want: want[cat.key], have: have[cat.key], ...res });
+  }
+  // Desayunos y postres de casa ya decididos en el menú: sus ingredientes van a la lista
+  const quickCounts = new Map();
+  for (let i = 0; i < days; i++) {
+    for (const slot of Object.values(state.plan?.[addDays(from, i)] || {})) {
+      if (slot?.kind === 'receta' && !slot.done) quickCounts.set(slot.recipeId, (quickCounts.get(slot.recipeId) || 0) + 1);
+    }
+  }
+  const quick = [...quickCounts.entries()]
+    .map(([id, n]) => ({ r: findRecipe(state, id), servings: n }))
+    .filter((x) => x.r);
+  return { days, sections, quick, shared: sharedIngredients(picked) };
 }
 
 /** Reparte las raciones necesarias entre las recetas (mínimo 3 por lote). */

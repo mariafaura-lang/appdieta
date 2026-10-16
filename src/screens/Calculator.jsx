@@ -7,9 +7,23 @@ import { iso } from '../lib/dates.js';
 import { FoodSearchSheet } from '../components/FoodSearch.jsx';
 import { Sheet, Seg, Stepper, NumInput, Field, MacroRow, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx';
 
-export const EMPTY_DRAFT = { name: '', emoji: '🥡', recipeId: null, freezes: 'bien', ingredients: [], portions: 5, mode: 'equal', potWeight: '', tupperWeights: [] };
+export const EMPTY_DRAFT = { name: '', emoji: '🥡', recipeId: null, freezes: 'bien', meals: null, light: false, ingredients: [], portions: 5, mode: 'equal', potWeight: '', tupperWeights: [] };
 
-const EMOJIS = ['🥡', '🥘', '🍲', '🍛', '🍝', '🍚', '🌶️', '🫘', '🥦', '🐟', '🍗', '🥗', '🎃', '🫕'];
+export const USES = [
+  { id: 'principal', label: 'Comida o cena', meals: ['comida', 'cena'], light: false },
+  { id: 'ligera', label: 'Cena ligera (crema/puré)', meals: ['cena', 'comida'], light: true },
+  { id: 'desayuno', label: 'Desayuno', meals: ['desayuno'], light: false },
+  { id: 'postre', label: 'Postre', meals: ['postre'], light: false },
+];
+
+export function useOf(d) {
+  if (d.light) return 'ligera';
+  if (d.meals?.includes('desayuno')) return 'desayuno';
+  if (d.meals?.includes('postre')) return 'postre';
+  return 'principal';
+}
+
+const EMOJIS = ['🥡', '🧁', '🥪', '🍏', '🥒', '🥘', '🍲', '🍛', '🍝', '🍚', '🌶️', '🫘', '🥦', '🐟', '🍗', '🥗', '🎃', '🫕'];
 
 export default function Calculator({ go }) {
   const { state, update } = useStore();
@@ -41,6 +55,10 @@ export default function Calculator({ go }) {
           </select>
           <input placeholder="Nombre del lote (ej.: lentejas)" value={d.name} onChange={(e) => setDraft((x) => { x.name = e.target.value; })} aria-label="Nombre del lote" />
         </div>
+        <select id="uso-lote" aria-label="Para qué es este lote" style={{ marginTop: 8 }} value={useOf(d)}
+          onChange={(e) => setDraft((x) => { const u = USES.find((k) => k.id === e.target.value); x.meals = u.meals; x.light = u.light; })}>
+          {USES.map((u) => <option key={u.id} value={u.id}>Para: {u.label}</option>)}
+        </select>
       </div>
 
       <section className="card" style={{ paddingTop: 10 }}>
@@ -177,6 +195,8 @@ export default function Calculator({ go }) {
               emoji: d.emoji,
               recipeId: d.recipeId,
               freezes: d.freezes,
+              meals: d.meals || undefined,
+              light: d.light || undefined,
               totals,
               mode: d.mode,
               portions: d.portions,
@@ -228,6 +248,8 @@ function SaveRecipeSheet({ open, onClose, draft }) {
       minutes: Number(minutes) || 0,
       freezes,
       freezeNote: '',
+      meals: draft.meals || undefined,
+      light: draft.light || undefined,
       ingredients: draft.ingredients.map(({ foodId, grams, per100 }) => ({ foodId, grams: Number(grams) || 0, ...(per100 ? { per100 } : {}) })),
       steps: steps.split('\n').map((x) => x.trim()).filter(Boolean),
       createdAt: iso(),
@@ -273,6 +295,8 @@ export function draftFromRecipe(recipe, servings, customFoods = []) {
     emoji: recipe.emoji || '🥡',
     recipeId: recipe.id,
     freezes: recipe.freezes,
+    meals: recipe.meals || null,
+    light: !!recipe.light,
     portions: servings,
     ingredients: recipe.ingredients.map((i) => ({
       key: uid(),

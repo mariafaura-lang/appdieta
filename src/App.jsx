@@ -20,7 +20,7 @@ const TABS = [
 export default function App() {
   const { state, update } = useStore();
   const [tab, setTab] = useState(() => (location.hash.slice(1) || 'hoy'));
-  const [cookSub, setCookSub] = useState('recetas');
+  const [cookSub, setCookSub] = useState('menu');
   const [quickOpen, setQuickOpen] = useState(false);
   useWeightReminder();
 
@@ -31,7 +31,7 @@ export default function App() {
 
   const go = (to) => {
     if (to === 'registrar') return setQuickOpen(true);
-    if (to === 'plan' || to === 'calculadora' || to === 'recetas') {
+    if (to === 'plan' || to === 'calculadora' || to === 'recetas' || to === 'menu') {
       setCookSub(to);
       return setTab('cocinar');
     }
