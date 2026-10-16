@@ -32,8 +32,6 @@ export const CATEGORIES_PLAN = [
     filter: (r) => mealsOf(r).includes('comida') && !r.light && !r.quick },
   { key: 'cena', slot: 'cena', label: 'Cenas', emoji: '🌙',
     filter: (r, st) => mealsOf(r).includes('cena') && !r.quick && (st.settings.lightDinner === false || r.light) },
-  { key: 'postre', slot: 'postre', label: 'Postres', emoji: '🍏',
-    filter: (r) => mealsOf(r).includes('postre') && !r.quick },
 ];
 
 /** Puntúa una receta para el plan según objetivo del hueco, variedad y valoración. */
@@ -124,7 +122,7 @@ export function suggestWeekend(state, from, opts = {}) {
   const sections = [];
   const picked = [];
   for (const cat of CATEGORIES_PLAN) {
-    if (!want[cat.key]) continue;
+    if (!want[cat.key] && cat.key !== 'desayuno-tren') continue;
     const res = pickFor(state, from, cat, need[cat.key], opts, picked);
     picked.push(...res.picks.map((p) => p.r));
     sections.push({ ...cat, need: need[cat.key], want: want[cat.key], have: have[cat.key], ...res });

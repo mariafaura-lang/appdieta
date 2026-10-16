@@ -3,7 +3,7 @@ import { useStore } from '../store.jsx';
 import { suggestWeekend, shoppingList, shoppingText, fmtQty, sharedIngredients } from '../lib/planner.js';
 import { freezeLabel } from '../lib/recipes.js';
 import { FOOD_BY_ID, CATEGORIES } from '../data/foods.js';
-import { iso, fmtShort } from '../lib/dates.js';
+import { iso, fmtShort, DOW_SHORT, DOW_LONG } from '../lib/dates.js';
 import { haveGrams, addItem, defaultLocation, suggestedExpiry, UNIT_GRAMS } from '../lib/pantry.js';
 import { draftFromRecipe } from './Calculator.jsx';
 import { Stepper, Seg, Empty, useToast, fmt, fmtEur } from '../components/ui.jsx';
@@ -51,16 +51,30 @@ export default function Planner({ setSub }) {
           <Stepper value={days} onChange={setDays} min={1} max={14} label="Días a cubrir" />
         </div>
         <label className="toggle"><span className="small bold">Solo vegetarianas</span><input type="checkbox" checked={veg} onChange={(e) => setVeg(e.target.checked)} /></label>
+        <div className="field">
+          <span>Días que desayuno en el tren (táper de desayuno)</span>
+          <div className="grid4" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            {DOW_SHORT.map((d, i) => {
+              const on = (state.settings.trainDays || []).includes(i);
+              return (
+                <button key={d} className={`chip${on ? ' on' : ''}`} style={{ padding: 0 }} aria-pressed={on} aria-label={`Tren el ${DOW_LONG[i]}`}
+                  onClick={() => update((st) => { const t = st.settings.trainDays || []; st.settings.trainDays = on ? t.filter((x) => x !== i) : [...t, i].sort(); })}>
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <p className="small" style={{ color: 'var(--text-2)' }}>
-          Cuento lo que hay en el congelador y lo que ya está decidido en tu <button className="btn sm ghost" style={{ padding: '0 4px', minHeight: 0, textDecoration: 'underline' }} onClick={() => setSub('menu')}>menú</button>
-          {(state.settings.trainDays || []).length === 0 && ' (aún no has marcado días de tren)'}.
+          Cuento lo que hay en el congelador y lo que ya está decidido en tu <button className="btn sm ghost" style={{ padding: '0 4px', minHeight: 0, textDecoration: 'underline' }} onClick={() => setSub('menu')}>menú</button>.
+          Los desayunos de casa y el postre (fruta, yogur…) no se cocinan en lote: sus ingredientes van a la lista de la compra.
         </p>
         <div className="grid4" style={{ gridTemplateColumns: `repeat(${Math.max(1, plan.sections.length)}, 1fr)`, textAlign: 'center' }}>
           {plan.sections.map((sec) => (
             <div key={sec.key} className="tiny">
               <div>{sec.emoji}</div>
               <b className="num" style={{ fontSize: '1rem', color: sec.need ? 'var(--text)' : 'var(--accent)' }}>{sec.need ? `+${sec.need}` : '✓'}</b>
-              <div className="muted">{sec.label.split(' ')[0].toLowerCase()}</div>
+              <div className="muted">{sec.key === 'desayuno-tren' ? 'desayunos tren' : sec.label.toLowerCase()}</div>
             </div>
           ))}
         </div>

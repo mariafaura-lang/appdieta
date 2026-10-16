@@ -124,11 +124,11 @@ export function candidatesFor(state, date, slot, reserved, avoid = []) {
     .map((x) => x.b);
 }
 
-/** Recetas rápidas de casa para un hueco (desayunos de casa y postres). */
+/** Recetas rápidas de casa para un hueco (desayunos de casa y postres), en orden fijo de rotación. */
 export function quickRecipesFor(state, slot) {
   return allRecipes(state)
     .filter((r) => r.quick && mealsOf(r).includes(slot))
-    .sort((a, b) => (state.ratings[b.id] || 0) - (state.ratings[a.id] || 0));
+    .sort((a, b) => (state.ratings[b.id] || 0) - (state.ratings[a.id] || 0) || (b.fruit ? 1 : 0) - (a.fruit ? 1 : 0));
 }
 
 /** Recetas de lote para un hueco (para planificar aunque aún no estén cocinadas). */
@@ -153,11 +153,14 @@ export function autofill(state, from, days) {
     for (const { id: slot } of activeSlots(state)) {
       if (day[slot]) continue;
       const train = slot === 'desayuno' && isTrainDay(state, date);
-      const home = slot === 'desayuno' && !train;
+      // desayunos de casa y postres (fruta o similar) no son de táper
+      const home = (slot === 'desayuno' && !train) || slot === 'postre';
       const quick = quickRecipesFor(state, slot);
-      if (home && quick.length) {
-        const idx = (dayOfWeek(date) + i) % quick.length;
-        day[slot] = { kind: 'receta', recipeId: quick[idx].id };
+      // el postre se rellena con fruta; el resto de opciones quedan para elegir a mano
+      const pool = slot === 'postre' && quick.some((r) => r.fruit) ? quick.filter((r) => r.fruit) : quick;
+      if (home && pool.length) {
+        const idx = (dayOfWeek(date) + i) % pool.length;
+        day[slot] = { kind: 'receta', recipeId: pool[idx].id };
         continue;
       }
       const usedToday = Object.values(day).filter((x) => x?.kind === 'tupper').map((x) => x.batchId);
@@ -166,8 +169,6 @@ export function autofill(state, from, days) {
       if (best) {
         day[slot] = { kind: 'tupper', batchId: best.id };
         reserved[best.id] = (reserved[best.id] || 0) + 1;
-      } else if (slot === 'postre' && quick.length) {
-        day[slot] = { kind: 'receta', recipeId: quick[i % quick.length].id };
       } else if (train && batchRecipesFor(state, 'desayuno', { train: true }).length) {
         // sin táper de desayuno: se planifica una receta de tren para cocinar el finde
         day[slot] = { kind: 'receta', recipeId: batchRecipesFor(state, 'desayuno', { train: true })[0].id };
@@ -191,6 +192,7 @@ export function needsByMeal(state, from, days) {
   for (let i = 0; i < days; i++) {
     const date = addDays(from, i);
     for (const slot of slots) {
+      if (slot === 'postre') continue; // el postre es fruta o algo rápido: no se cocina en lote
       const planned = getSlot(state, date, slot);
       if (planned?.done) continue;
       const r = planned?.kind === 'receta' ? findRecipe(state, planned.recipeId) : null;

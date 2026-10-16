@@ -195,6 +195,18 @@ describe('menú por días', () => {
     expect(e.kind).toBe('tupper');
     expect(remaining(s.batches[0])).toHaveLength(4);
   });
+  it('el postre es fruta o algo rápido y no entra en la preparación del finde', () => {
+    const s = mkState();
+    autofill(s, '2026-10-19', 3);
+    for (const d of ['2026-10-19', '2026-10-20', '2026-10-21']) {
+      const r = BASE_RECIPES.find((x) => x.id === s.plan[d].postre.recipeId);
+      expect(r.quick && r.fruit).toBe(true);
+    }
+    expect(needsByMeal(s, '2026-10-19', 3).need.postre).toBe(0);
+    const keys = suggestWeekend(s, '2026-10-19', { days: 3 }).sections.map((x) => x.key);
+    expect(keys).not.toContain('postre');
+    expect(keys).toContain('desayuno-tren');
+  });
   it('lo planificado en casa no cuenta como táper necesario', () => {
     const s = mkState({ settings: { ...DEFAULT_STATE.settings, trainDays: [0, 1, 2, 3, 4] } });
     s.plan['2026-10-19'] = { desayuno: { kind: 'receta', recipeId: 'revuelto-claras' } };
