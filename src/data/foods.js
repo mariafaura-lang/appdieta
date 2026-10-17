@@ -65,6 +65,7 @@ export const FOODS = [
   // Carne
   F('pechuga_pollo', 'Pechuga de pollo', 'carne', 110, 23, 0, 1.6, 7.5, false),
   F('contramuslo_pollo', 'Contramuslo de pollo deshuesado', 'carne', 145, 19, 0, 7.5, 7, false),
+  F('alitas_pollo', 'Alitas de pollo (peso con hueso)', 'carne', 134, 12.3, 0, 9, 4.5, false),
   F('pavo_pechuga', 'Pechuga de pavo', 'carne', 105, 24, 0, 1, 8.5, false),
   F('pavo_picado', 'Carne picada de pavo', 'carne', 140, 20, 0, 6.5, 7.5, false),
   F('pollo_picado', 'Carne picada de pollo', 'carne', 120, 20, 0, 4.5, 8, false),

@@ -742,6 +742,26 @@ export const BASE_RECIPES = [
     steps: ['Tuesta el pan, unta el hummus y pon el salmón y el pepino en láminas.'],
   },
 
+  {
+    id: 'alitas-jordi-cruz',
+    name: 'Alitas de pollo adobadas de Jordi Cruz',
+    emoji: '🍗',
+    source: 'Jordi Cruz (publicada en sus redes; recogida por OKDiario y Diez Minutos)',
+    servings: 4,
+    minutes: 30,
+    freezes: 'bien',
+    freezeNote: 'Marinan 24 h. Ya asadas congelan bien; recalienta 5–6 min en airfryer a 200 °C para que vuelvan a quedar crujientes. Acompáñalas con ensalada o verduras al horno. Las kcal cuentan el peso con hueso (≈70 % se come).',
+    ingredients: [
+      I('alitas_pollo', 1000), I('aceite_oliva', 25), I('miel', 25), I('salsa_soja', 25),
+      I('pimenton', 5), I('ajo', 5), I('comino', 3),
+    ],
+    steps: [
+      'Adobo para 1 kg de alitas: 25 ml de aceite de oliva, 25 g de miel, 25 g de salsa de soja, 10 g de sal, 1 g de pimienta negra, 3 g de hierbas provenzales, 5 g de ajo en polvo, 5 g de pimentón de la Vera dulce y un toque picante (shichimi togarashi).',
+      'Mezcla bien las alitas con el adobo y deja marinar 24 horas en la nevera.',
+      'Asa en airfryer a 190 °C 15 minutos y luego 5–10 minutos más a 200 °C según el dorado (también en horno o sartén).',
+      'Para un acabado más crujiente, escúrrelas bien y pásalas por maicena antes de asar.',
+    ],
+  },
   // ---------- Comidas asiáticas por lote (inspiradas en vídeos de YouTube) ----------
   {
     id: 'arroz-pollo-edamame-gambas',
