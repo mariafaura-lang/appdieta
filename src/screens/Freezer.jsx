@@ -75,7 +75,7 @@ function Freezer({ go }) {
             <p>El congelador está vacío.</p>
             <p className="small" style={{ marginTop: 6 }}>Cocina un lote y sus táperes aparecerán aquí con la fecha.</p>
             <div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8 }}>
-              <button className="btn primary" onClick={() => go('cocinar')}>Ver recetas</button>
+              <button className="btn primary" onClick={() => go('recetas')}>Ver recetas</button>
               <button className="btn" onClick={() => setAdding(true)}>Ya tengo táperes</button>
             </div>
           </Empty>

@@ -70,7 +70,7 @@ export function computeNudges(state, now = new Date()) {
       id: `antiguo-${oldest.id}`,
       icon: '⏳',
       text: `${oldest.name} lleva ${ageDays(oldest, today)} días congelado: buen candidato para esta semana.`,
-      action: { label: 'Ver congelador', to: 'congelador' },
+      action: { label: 'Ver congelador', to: 'casa' },
     });
   }
 

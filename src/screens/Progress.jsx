@@ -6,10 +6,30 @@ import { WORKOUT_TYPES } from '../lib/health.js';
 import { WeightChart, StepsChart } from '../components/Charts.jsx';
 import { WorkoutSheet } from '../components/WorkoutSheet.jsx';
 import { Seg, NumInput, useToast, fmt } from '../components/ui.jsx';
+import Diary from './Diary.jsx';
+
+export default function Progress({ go }) {
+  const [sec, setSec] = useState(() => { try { return sessionStorage.getItem('progreso-sec') || 'diario'; } catch { return 'diario'; } });
+  const choose = (v) => { setSec(v); try { sessionStorage.setItem('progreso-sec', v); } catch { /* sin almacenamiento */ } };
+  return (
+    <>
+      <header className="topbar">
+        <div>
+          <h1>Progreso</h1>
+          <div className="sub">Lo que has comido, tu peso y tu actividad</div>
+        </div>
+      </header>
+      <div style={{ marginBottom: 14 }}>
+        <Seg value={sec} onChange={choose} options={[{ value: 'diario', label: '🍽️ Diario' }, { value: 'cuerpo', label: '⚖️ Peso y actividad' }]} />
+      </div>
+      {sec === 'diario' ? <Diary go={go} /> : <BodyActivity />}
+    </>
+  );
+}
 
 const kg = (n) => n.toFixed(1).replace('.', ',');
 
-export default function Progress() {
+function BodyActivity() {
   const { state, update } = useStore();
   const toast = useToast();
   const today = iso();
@@ -50,13 +70,6 @@ export default function Progress() {
 
   return (
     <>
-      <header className="topbar">
-        <div>
-          <h1>Progreso</h1>
-          <div className="sub">Peso, pasos y entrenos</div>
-        </div>
-      </header>
-
       <div className="stack">
         <section className="card stack">
           <div className="row between" style={{ alignItems: 'flex-end' }}>

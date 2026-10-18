@@ -211,7 +211,7 @@ export default function Calculator({ go }) {
           setFreezeOpen(false);
           const fromHome = d.ingredients.filter((i) => haveGrams(state, i.foodId) > 0).length;
           toast(`🧊 ${nTuppers} táperes de ${d.name || 'lote'} al congelador${fromHome ? ` · descontados ${fromHome} ingredientes de casa` : ''}`);
-          go('congelador');
+          go('casa');
         }}
       />
       <SaveRecipeSheet key={saveOpen ? 'open' : 'closed'} open={saveOpen} onClose={() => setSaveOpen(false)} draft={d} />

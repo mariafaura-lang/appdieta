@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useStore } from './store.jsx';
 import { isProfileComplete } from './lib/energy.js';
 import Today from './screens/Today.jsx';
-import Freezer from './screens/Freezer.jsx';
-import Cook from './screens/Cook.jsx';
+import Casa from './screens/Freezer.jsx';
+import Recetario from './screens/Recetario.jsx';
+import Calendario from './screens/Calendario.jsx';
 import Progress from './screens/Progress.jsx';
 import Profile from './screens/Profile.jsx';
 import { QuickLogSheet } from './components/QuickLog.jsx';
@@ -11,35 +12,35 @@ import { useWeightReminder } from './components/Reminders.jsx';
 
 const TABS = [
   { id: 'hoy', label: 'Hoy', icon: '☀️' },
-  { id: 'congelador', label: 'Casa', icon: '🧊' },
-  { id: 'registrar', label: 'Registrar', icon: '+', plus: true },
-  { id: 'cocinar', label: 'Cocinar', icon: '🍳' },
+  { id: 'casa', label: 'Casa', icon: '🏠' },
+  { id: 'recetario', label: 'Recetario', icon: '📖' },
+  { id: 'calendario', label: 'Calendario', icon: '📅' },
   { id: 'progreso', label: 'Progreso', icon: '📈' },
 ];
+const OLD_TABS = { congelador: 'casa', cocinar: 'recetario' };
 
 export default function App() {
   const { state, update } = useStore();
-  const [tab, setTab] = useState(() => (location.hash.slice(1) || 'hoy'));
-  const [cookSub, setCookSub] = useState('menu');
+  const [tab, setTab] = useState(() => { const h = location.hash.slice(1) || 'hoy'; return OLD_TABS[h] || h; });
+  const [recSub, setRecSub] = useState('recetas');
+  const [calSub, setCalSub] = useState('menu');
   const [quickOpen, setQuickOpen] = useState(false);
   useWeightReminder();
 
   useEffect(() => {
     history.replaceState(null, '', `#${tab}`);
     window.scrollTo(0, 0);
-  }, [tab, cookSub]);
+  }, [tab, recSub, calSub]);
 
   const go = (to) => {
     if (to === 'registrar') return setQuickOpen(true);
     if (to === 'nevera') {
       try { sessionStorage.setItem('casa-sec', 'nevera'); } catch { /* sin almacenamiento */ }
-      return setTab('congelador');
+      return setTab('casa');
     }
-    if (to === 'plan' || to === 'calculadora' || to === 'recetas' || to === 'menu') {
-      setCookSub(to);
-      return setTab('cocinar');
-    }
-    setTab(to);
+    if (to === 'recetas' || to === 'calculadora') { setRecSub(to); return setTab('recetario'); }
+    if (to === 'menu' || to === 'plan') { setCalSub(to); return setTab('calendario'); }
+    setTab(OLD_TABS[to] || to);
   };
 
   if (!state.profile.onboarded || !isProfileComplete(state.profile)) {
@@ -54,9 +55,10 @@ export default function App() {
     <>
       <main className="app">
         {tab === 'hoy' && <Today go={go} />}
-        {tab === 'congelador' && <Freezer go={go} />}
-        {tab === 'cocinar' && <Cook sub={cookSub} setSub={setCookSub} go={go} />}
-        {tab === 'progreso' && <Progress />}
+        {tab === 'casa' && <Casa go={go} />}
+        {tab === 'recetario' && <Recetario sub={recSub} go={go} />}
+        {tab === 'calendario' && <Calendario sub={calSub} go={go} />}
+        {tab === 'progreso' && <Progress go={go} />}
         {tab === 'perfil' && <Profile />}
       </main>
       <nav className="nav" aria-label="Secciones">
@@ -64,17 +66,17 @@ export default function App() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              className={`${t.plus ? 'plus' : ''} ${tab === t.id ? 'on' : ''}`}
+              className={tab === t.id ? 'on' : ''}
               aria-current={tab === t.id ? 'page' : undefined}
-              aria-label={t.plus ? 'Registrar comida' : t.label}
-              onClick={() => (t.plus ? setQuickOpen(true) : setTab(t.id))}
+              onClick={() => setTab(t.id)}
             >
               <span className="i" aria-hidden="true">{t.icon}</span>
-              {!t.plus && <span>{t.label}</span>}
+              <span>{t.label}</span>
             </button>
           ))}
         </div>
       </nav>
+      <button className="fab" aria-label="Registrar comida" onClick={() => setQuickOpen(true)}>＋</button>
       <QuickLogSheet open={quickOpen} onClose={() => setQuickOpen(false)} />
     </>
   );
