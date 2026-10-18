@@ -1205,12 +1205,12 @@ export const BASE_RECIPES = [
     servings: 4,
     minutes: 30,
     freezes: 'bien',
-    freezeNote: 'Congela bien una vez triturado. Gramos estimados por piezas (4 calabacines pequeños, 1 patata, un chorro de aceite); para afinar, pesa la olla con el modo «Pesando». Si usaste tofu sedoso, cámbialo en la calculadora.',
+    freezeNote: 'Congela bien una vez triturado. Gramos estimados por piezas (4 calabacines pequeños, 1 patata, aceite abundante ≈ 40 g, unas 4 cucharadas); para afinar, pesa la olla con el modo «Pesando». Si usaste tofu sedoso, cámbialo en la calculadora.',
     ingredients: [
-      I('calabacin', 800), I('patata', 200), I('tofu', 400), I('aceite_oliva', 15),
+      I('calabacin', 800), I('patata', 200), I('tofu', 400), I('aceite_oliva', 40),
     ],
     steps: [
-      'Dora la patata en trozos con un chorro de aceite.',
+      'Dora la patata en trozos con aceite abundante.',
       'Añade los calabacines troceados y rehoga un par de minutos.',
       'Cubre con agua y cuece 15–20 min hasta que la patata esté tierna.',
       'Añade 400 g de tofu y tritura. Ajusta de sal.',
