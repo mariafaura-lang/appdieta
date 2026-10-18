@@ -762,6 +762,25 @@ export const BASE_RECIPES = [
       'Para un acabado más crujiente, escúrrelas bien y pásalas por maicena antes de asar.',
     ],
   },
+  {
+    id: 'nuggets-pollo-airfryer',
+    name: 'Nuggets de pollo caseros en airfryer',
+    emoji: '🐔',
+    source: 'Receta de casa (Monsieur Cuisine)',
+    servings: 4,
+    minutes: 35,
+    freezes: 'bien',
+    freezeNote: 'Congélalos crudos y separados en una bandeja y luego en bolsa, o ya hechos. De congelado a airfryer: 12–14 min a 190 °C. Pan, leche y queso estimados: ajusta las cantidades reales en la calculadora.',
+    ingredients: [
+      I('pechuga_pollo', 700), I('pan', 60), I('leche_semi', 80), I('queso_untar', 80), I('ajo', 10), I('cilantro', 10),
+    ],
+    steps: [
+      'Remoja el pan en la leche.',
+      'Tritura en la Monsieur Cuisine la pechuga en trozos con el pan escurrido, el queso para untar, el ajo, el perejil y sal.',
+      'Forma los nuggets con las manos húmedas.',
+      'Airfryer a 190–200 °C unos 10–12 min, dándoles la vuelta a mitad.',
+    ],
+  },
   // ---------- Comidas asiáticas por lote (inspiradas en vídeos de YouTube) ----------
   {
     id: 'arroz-pollo-edamame-gambas',

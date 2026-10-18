@@ -105,6 +105,8 @@ export const FOODS = [
   F('queso_cottage', 'Queso cottage', 'lacteos', 98, 11, 3.4, 4.3, 7),
   F('queso_burgos', 'Queso de Burgos light', 'lacteos', 120, 13, 3.5, 6, 7),
   F('feta', 'Queso feta', 'lacteos', 264, 14, 4, 21, 12),
+  F('queso_untar', 'Queso para untar (tipo Philadelphia)', 'lacteos', 250, 6, 4, 24, 9),
+  F('queso_untar_light', 'Queso para untar light', 'lacteos', 150, 8, 5, 11, 9),
   F('mozzarella', 'Mozzarella', 'lacteos', 250, 18, 2, 19, 8),
   F('queso_rallado', 'Queso rallado (emmental)', 'lacteos', 380, 28, 0.5, 29, 10),
   F('parmesano', 'Parmesano', 'lacteos', 392, 33, 3, 28, 18),
