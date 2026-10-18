@@ -781,6 +781,28 @@ export const BASE_RECIPES = [
       'Airfryer a 190–200 °C unos 10–12 min, dándoles la vuelta a mitad.',
     ],
   },
+  {
+    id: 'arepas-pollo-aguacate',
+    name: 'Arepas de pollo, aguacate y mozzarella',
+    emoji: '🫓',
+    source: 'Receta de casa',
+    meals: ['comida', 'cena', 'desayuno'],
+    cold: true,
+    servings: 4,
+    minutes: 40,
+    freezes: 'bien',
+    freezeNote: '2 arepas por táper. Congélalas ya rellenas y envueltas en film; descongela en la nevera y caliéntalas en airfryer o sartén (también se comen templadas). El aguacate puede oscurecerse un poco. Cantidades estimadas para 8 arepas.',
+    ingredients: [
+      I('harina_maiz', 300), I('pechuga_pollo', 400), I('aguacate', 200), I('mozzarella', 120),
+      I('cebolla', 50), I('limon', 20), I('aceite_oliva', 10),
+    ],
+    steps: [
+      'Amasa la harina con unos 400 ml de agua templada y sal; deja reposar 5 min y forma 8 arepas.',
+      'Cocínalas en sartén o plancha 5–6 min por lado (o airfryer 15 min a 200 °C).',
+      'Cuece el pollo y desmenúzalo; mézclalo con el aguacate chafado, cebolla picada, limón y sal.',
+      'Abre las arepas y rellena con el pollo y la mozzarella.',
+    ],
+  },
   // ---------- Comidas asiáticas por lote (inspiradas en vídeos de YouTube) ----------
   {
     id: 'arroz-pollo-edamame-gambas',

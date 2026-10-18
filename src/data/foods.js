@@ -146,6 +146,7 @@ export const FOODS = [
   F('pan_rallado', 'Pan rallado', 'cereales', 395, 13, 72, 5, 3),
   F('tortilla_trigo', 'Tortilla de trigo (wrap)', 'cereales', 310, 8.5, 52, 7.5, 6),
   F('obleas_empanadilla', 'Obleas de empanadilla', 'cereales', 300, 7, 50, 7.5, 5),
+  F('harina_maiz', 'Harina de maíz precocida (tipo P.A.N.)', 'cereales', 350, 7, 76, 1.5, 3),
   F('harina', 'Harina de trigo', 'cereales', 364, 10, 76, 1, 0.9),
   F('lasana', 'Placas de lasaña', 'cereales', 357, 12.5, 72, 1.5, 3.5),
 
