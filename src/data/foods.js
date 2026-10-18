@@ -47,6 +47,7 @@ export const FOODS = [
   F('pepino', 'Pepino', 'verdura', 15, 0.7, 3.6, 0.1, 1.5),
   F('rucula', 'Rúcula / canónigos', 'verdura', 25, 2.6, 3.7, 0.7, 12),
   F('apio', 'Apio', 'verdura', 16, 0.7, 3, 0.2, 2),
+  F('col_lombarda', 'Col lombarda', 'verdura', 31, 1.4, 7.4, 0.2, 1.5),
   F('col', 'Col / repollo', 'verdura', 25, 1.3, 5.8, 0.1, 1.3),
   F('guisantes_cong', 'Guisantes congelados', 'congelados', 77, 5.2, 13.6, 0.4, 2.8),
   F('menestra_cong', 'Menestra congelada', 'congelados', 45, 2.5, 7, 0.3, 2.5),
@@ -59,6 +60,7 @@ export const FOODS = [
   F('manzana', 'Manzana', 'verdura', 52, 0.3, 14, 0.2, 2),
   F('platano', 'Plátano', 'verdura', 89, 1.1, 23, 0.3, 2),
   F('naranja', 'Naranja', 'verdura', 47, 0.9, 12, 0.1, 1.6),
+  F('pera', 'Pera', 'verdura', 57, 0.4, 15, 0.1, 2.2),
   F('fresas', 'Fresas', 'verdura', 32, 0.7, 7.7, 0.3, 4),
   F('aguacate', 'Aguacate', 'verdura', 160, 2, 8.5, 14.7, 5),
 
