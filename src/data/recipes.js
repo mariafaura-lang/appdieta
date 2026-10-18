@@ -1175,7 +1175,7 @@ export const BASE_RECIPES = [
 
   {
     id: 'pure-lombarda-pera',
-    name: 'Puré de lombarda con pera, patata y puerro',
+    name: 'Puré de lombarda con pera, patata, puerro y tofu',
     emoji: '💜',
     source: 'Receta de casa',
     meals: ['cena', 'comida'],
@@ -1183,15 +1183,15 @@ export const BASE_RECIPES = [
     servings: 6,
     minutes: 45,
     freezes: 'bien',
-    freezeNote: 'Congela bien una vez triturado. Es bajo en proteína: acompáñalo con un huevo, tofu, pollo o unas alubias. Gramos estimados por piezas (3 peras, 1 lombarda grande, 3 patatas medianas, 2 puerros); para afinar, pesa la olla con el modo «Pesando».',
+    freezeNote: 'Congela bien una vez triturado. El tofu le da cremosidad y proteína. Gramos estimados por piezas (3 peras, 1 lombarda grande, 3 patatas medianas, 2 puerros); para afinar, pesa la olla con el modo «Pesando». Si usaste tofu sedoso, cámbialo en la calculadora.',
     ingredients: [
-      I('col_lombarda', 1500), I('pera', 540), I('patata', 600), I('puerro', 300), I('aceite_oliva', 20),
+      I('col_lombarda', 1500), I('pera', 540), I('patata', 600), I('puerro', 300), I('tofu', 400), I('aceite_oliva', 20),
     ],
     steps: [
       'Dora los puerros en rodajas con un chorro de aceite.',
       'Añade la lombarda troceada y rehoga unos minutos.',
       'Incorpora las patatas y las peras peladas en trozos y cubre de agua justo hasta arriba.',
-      'Cuece hasta que la patata esté tierna (25–30 min) y tritura. Ajusta de sal.',
+      'Cuece hasta que la patata esté tierna (25–30 min), añade 400 g de tofu y tritura. Ajusta de sal.',
     ],
   },
 
