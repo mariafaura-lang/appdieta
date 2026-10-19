@@ -15,28 +15,48 @@ const SORTS = [
   { id: 'cost', label: 'Más baratas' },
 ];
 
-function mealTag(r) {
-  const m = mealsOf(r);
-  if (m.includes('desayuno')) return '🌅 Desayuno';
-  if (m.includes('postre')) return '🍏 Postre';
-  if (r.light) return '🌙 Cena ligera';
-  return null;
-}
+const primaryMeal = (r) => (r.light ? 'cena' : mealsOf(r)[0]);
+const isMine = (r) => !!r.custom || (r.source || '').startsWith('Receta de casa');
+
+const CATEGORIES = [
+  { id: 'todas', label: 'Todas', test: () => true },
+  { id: 'desayuno', label: '🌅 Desayunos', test: (r) => mealsOf(r).includes('desayuno') },
+  { id: 'comida', label: '🍽️ Comidas', test: (r) => mealsOf(r).includes('comida') && !r.light },
+  { id: 'cena', label: '🌙 Cenas ligeras', test: (r) => primaryMeal(r) === 'cena' },
+  { id: 'postre', label: '🍏 Postres', test: (r) => mealsOf(r).includes('postre') },
+  { id: 'mias', label: '✎ Mías', test: isMine },
+];
+
+const GROUPS = [
+  { id: 'mias', label: '✎ Mis recetas y de casa', test: isMine },
+  { id: 'desayuno-tren', label: '🚆 Desayunos para llevar (de lote)', test: (r) => primaryMeal(r) === 'desayuno' && !r.quick },
+  { id: 'desayuno-casa', label: '🌅 Desayunos rápidos de casa', test: (r) => primaryMeal(r) === 'desayuno' && r.quick },
+  { id: 'comida', label: '🍽️ Comidas', test: (r) => primaryMeal(r) === 'comida' },
+  { id: 'cena', label: '🌙 Cenas ligeras', test: (r) => primaryMeal(r) === 'cena' },
+  { id: 'postre', label: '🍏 Postres y fruta', test: (r) => primaryMeal(r) === 'postre' },
+];
+
+// Filtros secundarios (las comidas del día ya van por categoría)
+const EXTRA_FILTERS = FILTERS.filter((f) => !f.id.startsWith('m-') && f.id !== 'mine');
 
 export default function RecipeBook({ onCook }) {
   const { state } = useStore();
   const [q, setQ] = useState('');
+  const [cat, setCat] = useState(() => { try { return sessionStorage.getItem('recetas-cat') || 'todas'; } catch { return 'todas'; } });
   const [active, setActive] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState('rating');
   const [open, setOpen] = useState(null);
+  const chooseCat = (c) => { setCat(c); try { sessionStorage.setItem('recetas-cat', c); } catch { /* sin almacenamiento */ } };
 
   const items = useMemo(() => {
     const list = allRecipes(state).map((r) => ({ r, i: recipeInfo(r, state.customFoods), rating: state.ratings[r.id] || 0 }));
-    const nq = normalize(q);
-    const filtered = list.filter(({ r, i }) =>
-      (!nq || normalize(r.name).includes(nq) || r.ingredients.some((ing) => normalize(FOOD_BY_ID[ing.foodId]?.name).includes(nq))) &&
-      active.every((fid) => FILTERS.find((f) => f.id === fid).test(r, i)),
-    );
+    const words = normalize(q).split(/\s+/).filter(Boolean);
+    const catTest = CATEGORIES.find((c) => c.id === cat)?.test || (() => true);
+    const filtered = list.filter(({ r, i }) => {
+      const hay = normalize(`${r.name} ${r.source || ''} ${r.ingredients.map((ing) => FOOD_BY_ID[ing.foodId]?.name || '').join(' ')}`);
+      return words.every((w) => hay.includes(w)) && catTest(r) && active.every((fid) => EXTRA_FILTERS.find((f) => f.id === fid).test(r, i));
+    });
     const cmp = {
       rating: (a, b) => b.rating - a.rating || (a.r.custom ? -1 : 0) - (b.r.custom ? -1 : 0),
       kcal: (a, b) => a.i.per.kcal - b.i.per.kcal,
@@ -45,56 +65,89 @@ export default function RecipeBook({ onCook }) {
       cost: (a, b) => a.i.costPerServing - b.i.costPerServing,
     }[sort];
     return filtered.sort(cmp);
-  }, [state, q, active, sort]);
+  }, [state, q, cat, active, sort]);
 
   const toggle = (id) => setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
   const current = open && allRecipes(state).find((r) => r.id === open);
+  const grouped = cat === 'todas' && !q && active.length === 0;
+
+  const card = ({ r, i, rating }) => <RecipeCard key={r.id} r={r} i={i} rating={rating} onOpen={() => setOpen(r.id)} />;
 
   return (
     <div className="stack">
-      <input type="search" placeholder="Buscar receta o ingrediente" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar receta" />
-      <div className="chips" role="group" aria-label="Filtros">
-        {FILTERS.map((f) => (
-          <button key={f.id} className={`chip${active.includes(f.id) ? ' on' : ''}`} aria-pressed={active.includes(f.id)} onClick={() => toggle(f.id)}>{f.label}</button>
+      <input type="search" placeholder="🔎 Buscar receta o ingrediente (pollo, lentejas…)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar receta" />
+      <div className="chips" role="tablist" aria-label="Categorías">
+        {CATEGORIES.map((c) => (
+          <button key={c.id} role="tab" aria-selected={cat === c.id} className={`chip${cat === c.id ? ' on' : ''}`} onClick={() => chooseCat(c.id)}>{c.label}</button>
         ))}
       </div>
       <div className="row between">
         <span className="small muted">{items.length} recetas</span>
-        <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar" style={{ width: 'auto', minHeight: 36, padding: '4px 10px', fontSize: '0.85rem' }}>
-          {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
+        <button className="btn sm ghost" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
+          ⚙️ Filtros{active.length ? ` (${active.length})` : ''} {showFilters ? '▲' : '▼'}
+        </button>
       </div>
+      {showFilters && (
+        <div className="card flat stack" style={{ gap: 10 }}>
+          <div className="chips wrap" role="group" aria-label="Filtros">
+            {EXTRA_FILTERS.map((f) => (
+              <button key={f.id} className={`chip${active.includes(f.id) ? ' on' : ''}`} aria-pressed={active.includes(f.id)} onClick={() => toggle(f.id)}>{f.label}</button>
+            ))}
+          </div>
+          <label className="row between small">
+            <span className="bold">Ordenar por</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar" style={{ width: 'auto', minHeight: 36, padding: '4px 10px', fontSize: '0.85rem' }}>
+              {SORTS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+          </label>
+          {active.length > 0 && <button className="btn sm ghost" onClick={() => setActive([])}>Quitar filtros</button>}
+        </div>
+      )}
 
-      {items.length === 0 && <Empty icon="🔎"><p className="small">Ninguna receta cumple todos los filtros.</p></Empty>}
-      {items.map(({ r, i, rating }) => {
-        const fz = freezeLabel(r);
-        return (
-          <button key={r.id} className="card recipe-card" onClick={() => setOpen(r.id)}>
-            <span className="emoji">{r.emoji || '🥡'}</span>
-            <span className="grow" style={{ minWidth: 0 }}>
-              <div className="bold">{r.name}</div>
-              <div className="kv" style={{ marginTop: 4 }}>
-                <span><b>{fmt(i.per.kcal)}</b> kcal</span>
-                <span><b>{Math.round(i.per.p)} g</b> prot</span>
-                <span>⏱ {r.minutes} min</span>
-                <span>{fmtEur(i.costPerServing)}/{r.quick ? 'ración' : 'táper'}</span>
-              </div>
-              <div className="row wrap" style={{ gap: 4, marginTop: 6 }}>
-                <span className={`badge ${fz.tone}`}>{fz.icon} {fz.text}</span>
-                {mealTag(r) && <span className="badge">{mealTag(r)}</span>}
-                {r.cold && !r.quick && <span className="badge">🚆 Se come frío</span>}
-                {i.vegetarian && <span className="badge">🌱 Veg</span>}
-                {i.highProtein && <span className="badge" style={{ background: 'var(--protein-soft)' }}>💪 Proteica</span>}
-                {r.custom && <span className="badge">✎ Mía</span>}
-                {rating > 0 && <Stars value={rating} small />}
-              </div>
-            </span>
-          </button>
-        );
-      })}
+      {items.length === 0 && <Empty icon="🔎"><p className="small">No hay recetas con esa búsqueda o filtros.</p></Empty>}
+      {grouped
+        ? GROUPS.map((g) => {
+            const list = items.filter(({ r }) => g.test(r) && (g.id === 'mias' || !isMine(r)));
+            if (!list.length) return null;
+            return (
+              <section key={g.id} className="stack" style={{ gap: 8 }}>
+                <div className="section-title" style={{ margin: '10px 2px 0' }}>
+                  <h2>{g.label}</h2>
+                  <span className="small muted">{list.length}</span>
+                </div>
+                {list.map(card)}
+              </section>
+            );
+          })
+        : items.map(card)}
 
       {current && <RecipeDetail key={current.id} recipe={current} onClose={() => setOpen(null)} onCook={onCook} />}
     </div>
+  );
+}
+
+function RecipeCard({ r, i, rating, onOpen }) {
+  const fz = freezeLabel(r);
+  return (
+    <button className="card recipe-card" onClick={onOpen}>
+      <span className="emoji">{r.emoji || '🥡'}</span>
+      <span className="grow" style={{ minWidth: 0 }}>
+        <div className="bold">{r.name}</div>
+        <div className="kv" style={{ marginTop: 4 }}>
+          <span><b>{fmt(i.per.kcal)}</b> kcal</span>
+          <span><b>{Math.round(i.per.p)} g</b> prot</span>
+          <span>⏱ {r.minutes} min</span>
+          <span>{fmtEur(i.costPerServing)}/{r.quick ? 'ración' : 'táper'}</span>
+        </div>
+        <div className="row wrap" style={{ gap: 4, marginTop: 6 }}>
+          <span className={`badge ${fz.tone}`}>{fz.icon} {fz.text}</span>
+          {r.cold && !r.quick && <span className="badge">🚆 Se come frío</span>}
+          {i.vegetarian && <span className="badge">🌱 Veg</span>}
+          {i.highProtein && <span className="badge" style={{ background: 'var(--protein-soft)' }}>💪 Proteica</span>}
+          {rating > 0 && <Stars value={rating} small />}
+        </div>
+      </span>
+    </button>
   );
 }
 

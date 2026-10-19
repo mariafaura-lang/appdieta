@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store.jsx';
 import { activeSlots, getSlot, slotLabel } from '../lib/dayplan.js';
 import { addDays, iso } from '../lib/dates.js';
-import { SlotRow, SlotPicker } from './MenuParts.jsx';
+import { TodayRow, SlotPicker } from './MenuParts.jsx';
 
 export function PlanToday({ go }) {
   const { state, update } = useStore();
@@ -10,7 +10,6 @@ export function PlanToday({ go }) {
   const today = iso();
   const tomorrow = addDays(today, 1);
   const slots = activeSlots(state);
-  const hasPlan = slots.some((s) => getSlot(state, today, s.id));
   const toThaw = slots
     .map((s) => ({ id: s.id, slot: getSlot(state, tomorrow, s.id) }))
     .filter((x) => x.slot?.kind === 'tupper' && !x.slot.done);
@@ -18,23 +17,16 @@ export function PlanToday({ go }) {
   const evening = new Date().getHours() >= (Number(state.settings.thawHour) || 19);
 
   return (
-    <section className="card" aria-label="Menú de hoy" style={{ paddingBottom: 8 }}>
+    <section className="card" aria-label="Hoy he comido" style={{ paddingBottom: 8 }}>
       <div className="row between">
-        <h2>Menú de hoy</h2>
-        <button className="btn sm ghost" onClick={() => go('menu')}>Semana →</button>
+        <h2>Hoy he comido</h2>
+        <button className="btn sm ghost" onClick={() => go('menu')}>Calendario →</button>
       </div>
-      {!hasPlan ? (
-        <div style={{ padding: '10px 0' }}>
-          <p className="small muted">Aún no hay menú. Rellénalo con lo que tienes en el congelador y aquí solo tendrás que confirmar.</p>
-          <button className="btn sm soft" style={{ marginTop: 8 }} onClick={() => go('menu')}>Planificar la semana</button>
-        </div>
-      ) : (
-        <div className="list">
-          {slots.map((s) => (
-            <SlotRow key={s.id} date={today} slotId={s.id} canConfirm onEdit={() => setPicker({ date: today, slotId: s.id })} />
-          ))}
-        </div>
-      )}
+      <div className="list">
+        {slots.map((s) => (
+          <TodayRow key={s.id} slotId={s.id} onPick={() => setPicker({ date: today, slotId: s.id })} />
+        ))}
+      </div>
       {toThaw.length > 0 && (evening || pendingThaw.length < toThaw.length) && (
         <div className="notice" style={{ marginTop: 8, marginBottom: 8 }}>
           <span style={{ fontSize: '1.2rem' }}>🧊</span>
@@ -52,7 +44,7 @@ export function PlanToday({ go }) {
           </div>
         </div>
       )}
-      <SlotPicker target={picker} onClose={() => setPicker(null)} />
+      <SlotPicker target={picker} mode="log" onClose={() => setPicker(null)} />
     </section>
   );
 }
